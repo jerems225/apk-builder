@@ -34,12 +34,34 @@ command -v node >/dev/null || { echo "  node absent" >&2; exit 1; }
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
 [ "$NODE_MAJOR" -ge 20 ] || { echo "  Node 20 minimum, trouvé $NODE_MAJOR" >&2; exit 1; }
 echo "  node $(node -v)"
-# keytool sert à valider un magasin de clés déposé depuis l'interface. Son
-# absence n'empêche pas le service de démarrer, mais rend l'écran inutilisable.
-command -v keytool >/dev/null \
-  && echo "  keytool présent" \
-  || echo "  ATTENTION : keytool absent — installez openjdk-17-jdk-headless,
-    sinon le dépôt d'une clé de signature échouera."
+# keytool génère et vérifie les clés de signature depuis l'interface. On
+# l'installe plutôt que de le signaler manquant : personne ne devrait avoir à
+# poser un JDK à la main pour cliquer sur « Créer une clé ».
+#
+# Le paquet JRE suffit — keytool en fait partie — et pèse quatre fois moins que
+# le JDK. Le service a de toute façon un repli sur le JDK de l'image de build,
+# mais passer par un conteneur pour lire un fichier de trois kilo-octets est un
+# détour qu'on évite quand on peut.
+if command -v keytool >/dev/null 2>&1; then
+  echo "  keytool présent : $(command -v keytool)"
+else
+  echo "  keytool absent — installation d'openjdk-17-jre-headless"
+  if apt-get install -y --no-install-recommends openjdk-17-jre-headless >/dev/null 2>&1 \
+     || { apt-get update -qq >/dev/null 2>&1 && \
+          apt-get install -y --no-install-recommends openjdk-17-jre-headless >/dev/null 2>&1; }; then
+    command -v keytool >/dev/null 2>&1 \
+      && echo "  keytool installé : $(command -v keytool)" \
+      || {
+        # Certaines variantes de paquet n'embarquent pas keytool dans le JRE.
+        echo "  keytool toujours absent — repli sur le JDK"
+        apt-get install -y --no-install-recommends openjdk-17-jdk-headless >/dev/null 2>&1 || true
+        command -v keytool >/dev/null 2>&1 && echo "  keytool installé (JDK)"
+      }
+  else
+    echo "  ATTENTION : installation impossible. La génération de clés passera par le"
+    echo "  JDK de l'image de build Docker, plus lente mais fonctionnelle."
+  fi
+fi
 
 # ── 2. Utilisateur de service ────────────────────────────────────────────────
 step "Utilisateur de service"

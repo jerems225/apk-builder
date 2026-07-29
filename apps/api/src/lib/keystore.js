@@ -34,23 +34,90 @@ function filePath(projectId) {
   return p;
 }
 
-/** Exécute keytool avec le mot de passe dans l'environnement, pas dans argv. */
-function keytool(args, password) {
-  const r = spawnSync(config.keytoolBin, args, {
-    encoding: 'utf8',
-    timeout: 180_000, // une clé RSA 4096 prend quelques secondes, parfois plus
-    env: { ...process.env, APKB_KS_PASS: password },
-  });
-  return { ...r, output: `${r.stdout || ''}${r.stderr || ''}` };
-}
+// Marqueur remplacé par le chemin du magasin, qui diffère selon qu'on exécute
+// keytool sur l'hôte ou dans un conteneur.
+const KS = '@MAGASIN@';
 
 const PASS_ARGS = ['-storepass:env', 'APKB_KS_PASS', '-keypass:env', 'APKB_KS_PASS'];
+
+/** keytool est-il installé sur l'hôte ? Mesuré une fois. */
+let _hote = null;
+function keytoolSurHote() {
+  if (_hote === null) {
+    const r = spawnSync(config.keytoolBin, ['-help'], { encoding: 'utf8', timeout: 10_000 });
+    _hote = !r.error;
+  }
+  return _hote;
+}
+
+/** L'image de build est-elle disponible ? Elle embarque un JDK 17 complet. */
+let _image = null;
+function imageDeBuild() {
+  if (_image === null) {
+    const r = spawnSync('docker', ['image', 'inspect', config.dockerImage],
+      { encoding: 'utf8', timeout: 20_000 });
+    _image = !r.error && r.status === 0;
+  }
+  return _image;
+}
+
+/**
+ * Exécute keytool sur un magasin situé dans `dir`.
+ *
+ * Deux chemins d'exécution, dans cet ordre :
+ *
+ * 1. **keytool de l'hôte**, si un JRE est installé — le cas normal, mis en
+ *    place par install.sh.
+ * 2. **keytool du conteneur de build**, sinon. L'image embarque déjà un JDK 17
+ *    pour compiler les APK : elle est donc présente sur toute machine où ce
+ *    service tourne vraiment. Ce repli évite d'exiger une installation
+ *    supplémentaire pour une fonction d'interface.
+ *
+ * Le mot de passe passe par l'environnement dans les deux cas. Avec Docker,
+ * `-e NOM` sans valeur reprend la variable du processus appelant : elle
+ * n'apparaît donc jamais dans la ligne de commande, lisible par tout compte de
+ * la machine.
+ */
+function keytool(args, password, dir, fichier) {
+  const env = { ...process.env, APKB_KS_PASS: password };
+  const commun = { encoding: 'utf8', timeout: 180_000, env }; // RSA 4096 : quelques secondes
+
+  if (keytoolSurHote()) {
+    const finaux = args.map((a) => (a === KS ? path.join(dir, fichier) : a));
+    const r = spawnSync(config.keytoolBin, finaux, commun);
+    return { ...r, output: `${r.stdout || ''}${r.stderr || ''}`, via: 'hôte' };
+  }
+
+  if (!imageDeBuild()) {
+    return {
+      error: Object.assign(new Error('keytool indisponible'), { code: 'ENOENT' }),
+      output: '', via: 'aucun',
+    };
+  }
+
+  const uid = process.getuid ? process.getuid() : 0;
+  const gid = process.getgid ? process.getgid() : 0;
+  const finaux = args.map((a) => (a === KS ? `/magasin/${fichier}` : a));
+  const r = spawnSync('docker', [
+    'run', '--rm',
+    '--entrypoint', 'keytool',
+    '--user', `${uid}:${gid}`,
+    '--network', 'none', // aucune raison d'accéder au réseau pour générer une clé
+    '-e', 'APKB_KS_PASS',
+    '-v', `${dir}:/magasin`,
+    config.dockerImage,
+    ...finaux,
+  ], commun);
+  return { ...r, output: `${r.stdout || ''}${r.stderr || ''}`, via: 'conteneur' };
+}
 
 /** Message lisible pour les deux causes d'échec qu'on rencontre réellement. */
 function diagnostic(r, alias) {
   if (r.error) {
     return r.error.code === 'ENOENT'
-      ? 'keytool est introuvable sur le serveur (paquet openjdk-17-jdk-headless).'
+      ? 'Aucun outil de gestion de clés disponible sur le serveur : ni keytool installé, ' +
+        'ni image de build Docker. Installez openjdk-17-jre-headless, ou construisez ' +
+        'l’image avec deploy/install.sh.'
       : `keytool n’a pas pu être exécuté : ${r.error.message}`;
   }
   const out = r.output || '';
@@ -68,11 +135,11 @@ function diagnostic(r, alias) {
  * le bon, et relever l'empreinte SHA-256 — la seule trace de la clé que
  * l'interface affichera ensuite.
  */
-function inspect(file, password, alias) {
-  const args = ['-list', '-v', '-keystore', file, ...PASS_ARGS];
+function inspect(dossier, fichier, password, alias) {
+  const args = ['-list', '-v', '-keystore', KS, ...PASS_ARGS];
   if (alias) args.push('-alias', alias);
 
-  const r = keytool(args, password);
+  const r = keytool(args, password, dossier, fichier);
   if (r.error || r.status !== 0) return { ok: false, error: diagnostic(r, alias) };
 
   const out = r.output;
@@ -150,8 +217,10 @@ function generate(projectId, opts) {
   }
 
   const dn = buildDn(opts);
+  const dossier = dir();
+  const provisoire = `${fileName(projectId)}.nouveau`;
+  const tmp = path.join(dossier, provisoire);
   const target = filePath(projectId);
-  const tmp = `${target}.nouveau`;
   fs.rmSync(tmp, { force: true });
 
   // 32 octets d'aléa. En PKCS12, magasin et clé partagent le même mot de passe :
@@ -160,7 +229,7 @@ function generate(projectId, opts) {
 
   const r = keytool([
     '-genkeypair',
-    '-keystore', tmp,
+    '-keystore', KS,
     '-storetype', 'PKCS12',
     '-alias', alias,
     '-keyalg', 'RSA',
@@ -168,7 +237,7 @@ function generate(projectId, opts) {
     '-validity', String(validityDays),
     '-dname', dn,
     ...PASS_ARGS,
-  ], password);
+  ], password, dossier, provisoire);
 
   if (r.error || r.status !== 0) {
     fs.rmSync(tmp, { force: true });
@@ -176,11 +245,12 @@ function generate(projectId, opts) {
       ? diagnostic(r)
       : `keytool a refusé la génération : ${(r.output || '').split('\n').filter(Boolean).slice(-2).join(' ')}`);
   }
+  console.log(`[keystore] clé générée pour ${projectId} (keytool ${r.via}, RSA ${keySize})`);
 
   // Relecture du fichier qu'on vient d'écrire : c'est ce qui garantit que
   // l'empreinte enregistrée est bien celle du magasin, et non celle qu'on
   // croit avoir demandée.
-  const info = inspect(tmp, password, alias);
+  const info = inspect(dossier, provisoire, password, alias);
   if (!info.ok || !info.fingerprint) {
     fs.rmSync(tmp, { force: true });
     throw badRequest('Le magasin a été créé mais reste illisible. Génération abandonnée.');
@@ -210,12 +280,14 @@ function generate(projectId, opts) {
  * fichier déposé, jamais un chemin fourni par le client.
  */
 function store(projectId, buffer, password, alias) {
+  const dossier = dir();
+  const provisoire = `${fileName(projectId)}.depot`;
+  const tmp = path.join(dossier, provisoire);
   const target = filePath(projectId);
-  const tmp = `${target}.upload`;
 
   fs.writeFileSync(tmp, buffer, { mode: 0o600 });
   try {
-    const info = inspect(tmp, password, alias);
+    const info = inspect(dossier, provisoire, password, alias);
     if (!info.ok) throw badRequest(info.error);
     if (!info.fingerprint) {
       throw badRequest(
@@ -294,21 +366,17 @@ function resolveForProject(project) {
 }
 
 /**
- * Vrai si keytool est utilisable : l'interface n'offre la génération que si
- * elle peut aboutir. Le résultat est mémorisé — lancer un processus à chaque
- * requête pour une réponse qui ne change pas serait du gaspillage.
+ * Vrai si la gestion de clés est utilisable, par l'un ou l'autre chemin :
+ * keytool installé sur l'hôte, ou image de build Docker disponible. L'interface
+ * n'offre la génération que si elle peut aboutir — un bouton qui échoue vaut
+ * moins qu'un bouton absent.
  */
-let _available = null;
 function available() {
-  if (_available === null) {
-    const r = spawnSync(config.keytoolBin, ['-help'], { encoding: 'utf8', timeout: 10_000 });
-    _available = !r.error;
-    if (!_available) {
-      console.warn('[keystore] keytool introuvable — génération et dépôt de clés indisponibles ' +
-        '(paquet openjdk-17-jdk-headless).');
-    }
-  }
-  return _available;
+  if (keytoolSurHote()) return true;
+  if (imageDeBuild()) return true;
+  console.warn('[keystore] ni keytool sur l’hôte, ni image de build : génération et dépôt ' +
+    'de clés indisponibles. Installez openjdk-17-jre-headless.');
+  return false;
 }
 
 module.exports = {

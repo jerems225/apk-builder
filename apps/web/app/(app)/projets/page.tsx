@@ -739,24 +739,33 @@ function FormulaireGeneration({
         </Field>
       </div>
 
-      <div className="grid gap-3.5 sm:grid-cols-2">
-        <Field label="Validité"
-          hint="Une clé qui expire condamne l’application à changer d’identité. Viser large.">
-          <Select value={validite} onChange={(e) => setValidite(e.target.value)}>
-            <option value="10950">30 ans (recommandé)</option>
-            <option value="18250">50 ans</option>
-            <option value="3650">10 ans</option>
-          </Select>
-        </Field>
-        <Field label="Taille de la clé"
-          hint="4096 bits ajoute quelques secondes à la génération, une fois pour toutes.">
-          <Select value={taille} onChange={(e) => setTaille(e.target.value)}>
-            <option value="4096">RSA 4096 (recommandé)</option>
-            <option value="3072">RSA 3072</option>
-            <option value="2048">RSA 2048</option>
-          </Select>
-        </Field>
-      </div>
+      {/* Repliés : les valeurs par défaut conviennent dans tous les cas que
+          nous rencontrons. Les exposer d'emblée donnerait à croire qu'il faut
+          les régler, alors que la bonne réponse est de ne pas y toucher. */}
+      <details className="rounded-lg px-3.5 py-3"
+        style={{ background: 'var(--surface-sunken)' }}>
+        <summary className="cursor-pointer text-[12.5px] font-semibold">
+          Réglages avancés — RSA 4096, 30 ans
+        </summary>
+        <div className="mt-3 grid gap-3.5 sm:grid-cols-2">
+          <Field label="Validité"
+            hint="Une clé qui expire condamne l’application à changer d’identité. Viser large.">
+            <Select value={validite} onChange={(e) => setValidite(e.target.value)}>
+              <option value="10950">30 ans (recommandé)</option>
+              <option value="18250">50 ans</option>
+              <option value="3650">10 ans</option>
+            </Select>
+          </Field>
+          <Field label="Taille de la clé"
+            hint="4096 bits ajoute quelques secondes à la génération, une fois pour toutes.">
+            <Select value={taille} onChange={(e) => setTaille(e.target.value)}>
+              <option value="4096">RSA 4096 (recommandé)</option>
+              <option value="3072">RSA 3072</option>
+              <option value="2048">RSA 2048</option>
+            </Select>
+          </Field>
+        </div>
+      </details>
 
       <div className="rounded-lg px-3.5 py-3 text-[12px] leading-relaxed"
         style={{ background: 'var(--surface-sunken)', color: 'var(--ink-2)' }}>
