@@ -198,7 +198,9 @@ fi
 if [ "$SKIP_VHOST" -eq 0 ]; then
   if systemctl is-active --quiet apache2; then
     step "Vhost Apache ($SERVER_NAME)"
-    for m in proxy proxy_http headers ssl; do a2enmod -q "$m" >/dev/null 2>&1 || true; done
+    # rewrite : bascule HTTP vers HTTPS. headers : X-Forwarded-Proto, sans
+    # lequel les applications en amont fabriquent des liens en clair.
+    for m in proxy proxy_http headers ssl rewrite; do a2enmod -q "$m" >/dev/null 2>&1 || true; done
     sed "s|__SERVER_NAME__|$SERVER_NAME|g" \
       "$SRC_DIR/deploy/apache-apkbuild.conf" > "/etc/apache2/sites-available/${SERVER_NAME}.conf"
     a2ensite -q "${SERVER_NAME}.conf" >/dev/null

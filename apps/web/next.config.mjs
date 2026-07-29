@@ -12,6 +12,25 @@ const API = process.env.API_ORIGIN || 'http://127.0.0.1:9100';
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+
+  // La racine n'a pas de contenu propre. La redirection est déclarée ici, au
+  // niveau du routage, et non dans une page qui appellerait redirect() : Next
+  // la traite avant même d'entrer dans le rendu, donc sans monter de composant
+  // ni exécuter de code applicatif pour rien.
+  //
+  // Elle passe aussi AVANT le middleware. Un visiteur non connecté enchaîne
+  // donc / → /tableau-de-bord → /connexion?suite=/tableau-de-bord, et atterrit
+  // sur le tableau de bord après connexion — ce qu'on veut.
+  //
+  // 307 et non 301 : c'est une décision d'organisation des écrans, susceptible
+  // de changer. Un 301 serait mis en cache par les navigateurs de l'équipe et
+  // survivrait à la modification.
+  async redirects() {
+    return [
+      { source: '/', destination: '/tableau-de-bord', permanent: false },
+    ];
+  },
+
   async rewrites() {
     if (process.env.NODE_ENV === 'production' && process.env.PROXY_API !== 'true') return [];
     return [

@@ -5,6 +5,29 @@ const COOKIE = process.env.NEXT_PUBLIC_COOKIE_NAME || 'apkb_session';
 const PUBLIC = ['/connexion', '/_next', '/favicon', '/api', '/dl', '/latest', '/healthz'];
 
 /**
+ * Origine publique réelle de la requête.
+ *
+ * Next.js construit `req.nextUrl` à partir de sa propre écoute — 127.0.0.1:3000
+ * derrière le frontal — et fabriquait donc des redirections vers localhost.
+ * Une cible relative n'est pas une option : le middleware analyse l'en-tête
+ * `Location` comme une URL et rejette tout ce qui n'est pas absolu
+ * (« TypeError: Invalid URL »).
+ *
+ * On reconstruit donc l'origine depuis ce que pose le frontal. Apache fournit
+ * les deux en-têtes : `X-Forwarded-Host` nativement, `X-Forwarded-Proto` par la
+ * directive `RequestHeader` du vhost. Les replis couvrent le développement
+ * local, où aucun des deux n'existe.
+ */
+function origine(req: NextRequest): string {
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+  if (!host) return req.nextUrl.origin;
+  const proto = req.headers.get('x-forwarded-proto')
+    || req.nextUrl.protocol.replace(':', '')
+    || 'http';
+  return `${proto}://${host}`;
+}
+
+/**
  * Garde d'accès en bordure. Elle ne vérifie que la PRÉSENCE du cookie, pas sa
  * validité : le cookie est vérifié côté API, et refaire cette vérification ici
  * imposerait un appel réseau à chaque navigation.
@@ -18,23 +41,11 @@ export function middleware(req: NextRequest) {
   if (PUBLIC.some((p) => pathname.startsWith(p))) return NextResponse.next();
 
   if (!req.cookies.get(COOKIE)) {
-    // Redirection RELATIVE, et non NextResponse.redirect().
-    //
-    // Cette dernière exige une URL absolue, que Next construit à partir de sa
-    // propre écoute — 127.0.0.1:3000 derrière le frontal. En production, le
-    // navigateur se retrouvait donc envoyé sur http://localhost:3000/connexion,
-    // c'est-à-dire nulle part.
-    //
-    // Reconstruire l'origine depuis X-Forwarded-Host et X-Forwarded-Proto
-    // marcherait, mais mod_proxy ne pose pas systématiquement le second : le
-    // schéma serait deviné. Une cible relative est résolue par le navigateur
-    // contre l'URL courante, donc toujours juste, en développement comme
-    // derrière Apache, en HTTP comme en HTTPS.
-    const suite = pathname === '/' ? '' : `?suite=${encodeURIComponent(pathname)}`;
-    return new NextResponse(null, {
-      status: 307,
-      headers: { Location: `/connexion${suite}` },
-    });
+    const cible = new URL('/connexion', origine(req));
+    // La racine est déjà redirigée vers le tableau de bord par next.config :
+    // y revenir après connexion n'apprendrait rien de plus.
+    if (pathname !== '/') cible.searchParams.set('suite', pathname);
+    return NextResponse.redirect(cible, 307);
   }
   return NextResponse.next();
 }
