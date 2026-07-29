@@ -10,7 +10,7 @@ import { initials } from '@/lib/format';
 import {
   IconDashboard, IconBuilds, IconProjects, IconLink, IconTeam, IconSettings,
   IconHelp, IconSearch, IconSun, IconMoon, IconLogout, IconMenu, IconClose,
-  IconChevronDown, IconDoc, IconKey,
+  IconChevronDown, IconDoc, IconKey, IconDownload,
 } from './ui/icons';
 
 // ─────────────────────────────── Navigation ──────────────────────────────────
@@ -205,6 +205,12 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <IconDoc size={18} />
           Documentation de l’API
         </a>
+        <Link href="/application" onClick={onNavigate}
+          className="flex items-center gap-3 rounded-xl px-3 py-2 text-[13.5px] font-medium"
+          style={{ color: 'var(--ink-2)' }}>
+          <IconDownload size={18} />
+          Application de bureau
+        </Link>
         <Link href="/aide" onClick={onNavigate}
           className="flex items-center gap-3 rounded-xl px-3 py-2 text-[13.5px] font-medium"
           style={{ color: 'var(--ink-2)' }}>

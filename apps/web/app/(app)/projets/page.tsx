@@ -322,13 +322,13 @@ function ProjectModal({
           <Field label="Dépôt" required error={fieldErrors.repoName}
             hint="Exactement comme le nomme le fournisseur Git.">
             <Input value={form.repoName} onChange={(e) => set('repoName', e.target.value)} required
-              placeholder="upjunoo/app-livreur" />
+              placeholder="agencix/app-livreur" />
           </Field>
         </div>
 
         <Field label="URL de clone" required error={fieldErrors.repoUrl}>
           <Input value={form.repoUrl} onChange={(e) => set('repoUrl', e.target.value)} required
-            placeholder="https://github.com/upjunoo/app-livreur.git" />
+            placeholder="https://github.com/agencix/app-livreur.git" />
         </Field>
 
         <Field label="Connexion Git"
