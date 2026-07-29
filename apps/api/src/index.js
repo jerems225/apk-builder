@@ -19,6 +19,7 @@ const buildRoutes = require('./routes/builds');
 const teamRoutes = require('./routes/team');
 const tokenRoutes = require('./routes/tokens');
 const statsRoutes = require('./routes/stats');
+const desktopRoutes = require('./routes/desktop');
 const webhookRoutes = require('./routes/webhooks');
 const downloadRoutes = require('./routes/downloads');
 const docsRoutes = require('./routes/docs');
@@ -103,6 +104,7 @@ app.use('/api/builds', buildRoutes.router);
 app.use('/api/team', teamRoutes.router);
 app.use('/api/tokens', tokenRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/desktop', desktopRoutes);
 app.use('/api/docs', docsRoutes);
 
 // Déclenchement machine : même contrôleur que POST /api/builds, mais

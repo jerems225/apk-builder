@@ -138,7 +138,7 @@ const spec = {
         properties: {
           id: { type: 'string' },
           name: { type: 'string' },
-          repoName: { type: 'string', example: 'upjunoo/app-mobile' },
+          repoName: { type: 'string', example: 'agencix/app-mobile' },
           repoUrl: { type: 'string' },
           appSubdir: { type: 'string', description: 'Sous-dossier du projet RN (monorepo). "." = racine.' },
           gradleTask: { type: 'string', example: 'assembleRelease' },

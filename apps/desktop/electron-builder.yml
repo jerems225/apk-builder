@@ -1,0 +1,91 @@
+appId: agencix.buildex
+productName: Buildex
+copyright: © 2026 Agencix
+
+# L'application est une coquille autour de l'interface servie par le serveur :
+# rien à embarquer d'autre que le processus principal et l'écran de
+# configuration. D'où un paquet de quelques centaines de kilo-octets une fois
+# Electron mis à part.
+files:
+  - src/**/*
+  - package.json
+  - '!**/*.map'
+
+directories:
+  buildResources: build
+  # Sortie déportée : les installateurs pèsent plusieurs centaines de Mo et le
+  # disque système de la machine de compilation est étroit. Adapter au besoin.
+  output: ${env.BUILDEX_SORTIE}
+
+# Compression maximale : ces fichiers se téléchargent depuis le tableau de bord,
+# souvent sur une connexion partagée. Quelques minutes de compilation valent
+# mieux que quarante méga-octets de plus à chaque téléchargement.
+compression: maximum
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: msi
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  icon: build/icone.ico
+  # Aucun certificat de signature de code : les binaires ne sont pas signés.
+  # SmartScreen affichera donc un avertissement à la première exécution. Voir
+  # la section « Signature » du README de ce dossier.
+  signAndEditExecutable: true
+  legalTrademarks: Buildex
+  artifactName: Buildex-${version}-${arch}.${ext}
+
+nsis:
+  # Assistant complet plutôt qu'installation en un clic : l'utilisateur choisit
+  # le dossier et voit ce qui se passe. Sur un poste d'entreprise, une
+  # installation silencieuse dans %LOCALAPPDATA% surprend plus qu'elle ne rend
+  # service.
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+
+  installerIcon: build/icone.ico
+  uninstallerIcon: build/icone-desinstallation.ico
+  installerHeaderIcon: build/icone.ico
+  installerHeader: build/installateur-entete.bmp
+  installerSidebar: build/installateur-cote.bmp
+  uninstallerSidebar: build/installateur-cote.bmp
+
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Buildex
+  menuCategory: false
+
+  # La configuration — adresse du serveur, cookies de session — reste après
+  # désinstallation : réinstaller une version corrigée ne doit pas obliger à
+  # tout ressaisir. Le dossier se supprime à la main si on veut faire propre.
+  deleteAppDataOnUninstall: false
+
+  runAfterFinish: true
+  installerLanguages:
+    - fr_FR
+    - en_US
+  language: 1036 # français
+
+msi:
+  # Le MSI existe pour le déploiement par stratégie de groupe : c'est le seul
+  # format qu'un administrateur peut pousser sur un parc sans intervention.
+  # D'où perMachine, contrairement au NSIS.
+  oneClick: false
+  perMachine: true
+  runAfterFinish: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Buildex
+
+portable:
+  artifactName: Buildex-${version}-portable.exe
+
+# Aucune mise à jour automatique : l'interface vient du serveur, elle se met
+# donc à jour toute seule. Seule la coquille demanderait une réinstallation, et
+# elle change rarement.
+publish: null

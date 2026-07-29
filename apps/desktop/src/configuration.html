@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; script-src 'unsafe-inline'">
+<title>Buildex — configuration</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 2rem;
+    font: 14px/1.6 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+    background: #0a0e17; color: #f1f5f9; user-select: none;
+  }
+  .carte { width: min(420px, 100%); }
+  .marque { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.75rem; }
+  .marque img { width: 40px; height: 40px; }
+  .marque b { font-size: 1.15rem; font-weight: 600; letter-spacing: -.01em; }
+  h1 { margin: 0 0 .35rem; font-size: 1rem; }
+  p.sous { margin: 0 0 1.5rem; font-size: .8125rem; color: #a8b3c4; }
+  label { display: block; font-size: .78rem; font-weight: 600; color: #a8b3c4; margin-bottom: .4rem; }
+  input {
+    width: 100%; padding: .7rem .8rem; font: inherit; user-select: text;
+    background: #111827; border: 1px solid #33405a; border-radius: 8px; color: #f1f5f9;
+  }
+  input:focus { outline: 2px solid #3b82f6; outline-offset: 1px; border-color: #3b82f6; }
+  .actions { display: flex; gap: .6rem; margin-top: 1.1rem; }
+  button {
+    flex: 1; padding: .7rem; font: inherit; font-weight: 600; cursor: pointer;
+    border: 0; border-radius: 8px;
+  }
+  button.principal { background: #3b82f6; color: #061021; }
+  button.principal:disabled { opacity: .45; cursor: default; }
+  button.second { background: #1c2434; color: #f1f5f9; }
+  .etat {
+    margin-top: 1.1rem; padding: .65rem .8rem; border-radius: 8px;
+    font-size: .8125rem; display: none;
+  }
+  .etat.ok { display: block; background: #0f2a15; color: #6ee07a; }
+  .etat.ko { display: block; background: #2e1416; color: #f79a9a; }
+  .etat.attente { display: block; background: #1c2434; color: #a8b3c4; }
+  .pied { margin-top: 1.75rem; font-size: .75rem; color: #7d879a; line-height: 1.7; }
+  .pied code { background: #111827; padding: .1rem .35rem; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <main class="carte">
+    <div class="marque">
+      <img src="marque.svg" alt="">
+      <b>Buildex</b>
+    </div>
+
+    <h1>Adresse de votre serveur</h1>
+    <p class="sous">
+      Cette application affiche l’interface servie par votre serveur Buildex.
+      Elle ne compile rien elle-même — tout se passe côté serveur.
+    </p>
+
+    <label for="url">Adresse</label>
+    <input id="url" type="text" placeholder="build.exemple.tech" autofocus
+           autocomplete="off" spellcheck="false">
+
+    <div class="actions">
+      <button class="second" id="verifier">Vérifier</button>
+      <button class="principal" id="connecter" disabled>Se connecter</button>
+    </div>
+
+    <div class="etat" id="etat"></div>
+
+    <p class="pied">
+      Le préfixe <code>https://</code> est facultatif. L’adresse est vérifiée
+      auprès de <code>/healthz</code> avant d’être enregistrée : mieux vaut la
+      refuser ici qu’afficher une page blanche.
+    </p>
+  </main>
+
+<script>
+  const champ = document.getElementById('url');
+  const etat = document.getElementById('etat');
+  const bVerifier = document.getElementById('verifier');
+  const bConnecter = document.getElementById('connecter');
+  let valide = null;
+
+  function afficher(classe, message) {
+    etat.className = 'etat ' + classe;
+    etat.textContent = message;
+  }
+
+  window.buildex.configuration().then(({ serveur }) => {
+    if (serveur) { champ.value = serveur; verifier(); }
+  });
+
+  async function verifier() {
+    const saisie = champ.value.trim();
+    if (!saisie) return;
+    bVerifier.disabled = true;
+    bConnecter.disabled = true;
+    afficher('attente', 'Vérification…');
+    const r = await window.buildex.verifier(saisie);
+    bVerifier.disabled = false;
+    if (r.ok) {
+      valide = r.url;
+      champ.value = r.url;
+      bConnecter.disabled = false;
+      afficher('ok', r.message);
+    } else {
+      valide = null;
+      afficher('ko', r.message);
+    }
+  }
+
+  bVerifier.addEventListener('click', verifier);
+  bConnecter.addEventListener('click', () => {
+    if (valide) window.buildex.enregistrer(valide);
+  });
+  champ.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    if (valide && !bConnecter.disabled) window.buildex.enregistrer(valide);
+    else verifier();
+  });
+  // Toute frappe invalide la vérification précédente : sans cela, on pourrait
+  // se connecter à une adresse qu'on vient de modifier.
+  champ.addEventListener('input', () => {
+    valide = null;
+    bConnecter.disabled = true;
+    etat.className = 'etat';
+  });
+</script>
+</body>
+</html>

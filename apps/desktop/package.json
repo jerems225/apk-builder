@@ -1,0 +1,22 @@
+{
+  "name": "@apk-builder/desktop",
+  "productName": "Buildex",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Client de bureau Buildex — compilation et distribution d'APK React Native",
+  "author": "Agencix <contact@agencix.ci>",
+  "license": "UNLICENSED",
+  "main": "src/main.js",
+  "scripts": {
+    "ressources": "node scripts/generer-ressources.mjs",
+    "dev": "electron .",
+    "build": "npm run ressources && electron-builder --win",
+    "build:exe": "npm run ressources && electron-builder --win nsis",
+    "build:msi": "npm run ressources && electron-builder --win msi",
+    "build:portable": "npm run ressources && electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  }
+}

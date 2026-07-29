@@ -162,7 +162,7 @@ function ProviderModal({
 
         <Field label="Nom" required hint="Ce que lit l’équipe dans la liste des projets.">
           <Input value={label} onChange={(e) => setLabel(e.target.value)} required
-            placeholder="GitHub — organisation Upjunoo" />
+            placeholder="GitHub — organisation Agencix" />
         </Field>
 
         <div className="grid gap-3.5 sm:grid-cols-2">
