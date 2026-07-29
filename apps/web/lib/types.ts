@@ -35,6 +35,8 @@ export interface Workspace {
   hasWebhookSecret: boolean;
   /** Faux si keytool n'est pas installé : la génération de clé est alors masquée. */
   keytoolDisponible: boolean;
+  /** Pré-remplissage du nom distinctif des certificats générés dans cet espace. */
+  certificat: { organisation: string; ville: string; pays: string };
   /** Renvoyé uniquement à la création ou après régénération. */
   webhookSecret?: string;
   createdAt: string;

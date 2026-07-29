@@ -125,6 +125,9 @@ function GeneralCard({ ws, onSaved }: { ws: Workspace | null; onSaved: (m: strin
   const [name, setName] = React.useState('');
   const [retention, setRetention] = React.useState('30');
   const [concurrent, setConcurrent] = React.useState('2');
+  const [organisation, setOrganisation] = React.useState('');
+  const [ville, setVille] = React.useState('');
+  const [pays, setPays] = React.useState('CI');
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {
@@ -132,6 +135,9 @@ function GeneralCard({ ws, onSaved }: { ws: Workspace | null; onSaved: (m: strin
     setName(ws.name);
     setRetention(String(ws.retentionDays));
     setConcurrent(String(ws.maxConcurrent));
+    setOrganisation(ws.certificat?.organisation ?? '');
+    setVille(ws.certificat?.ville ?? '');
+    setPays(ws.certificat?.pays ?? 'CI');
   }, [ws]);
 
   if (!ws) return <Skeleton className="h-64" />;
@@ -159,6 +165,35 @@ function GeneralCard({ ws, onSaved }: { ws: Workspace | null; onSaved: (m: strin
           </Select>
         </Field>
 
+        <div className="border-t pt-3.5" style={{ borderColor: 'var(--line)' }}>
+          <p className="text-[13px] font-semibold">Certificat de signature</p>
+          <p className="mt-0.5 mb-3 text-[12px] leading-relaxed" style={{ color: 'var(--ink-3)' }}>
+            Pré-remplit le nom distinctif de chaque clé générée dans cet espace. Ces valeurs
+            s’affichent dans les outils d’inspection d’APK, et restent modifiables projet par
+            projet — pour un client qui publie sous sa propre raison sociale.
+          </p>
+
+          <div className="grid gap-3.5 sm:grid-cols-3">
+            <Field label="Organisation">
+              <Input value={organisation} onChange={(e) => setOrganisation(e.target.value)}
+                disabled={readOnly} placeholder="Agencix" />
+            </Field>
+            <Field label="Ville">
+              <Input value={ville} onChange={(e) => setVille(e.target.value)}
+                disabled={readOnly} placeholder="Abidjan" />
+            </Field>
+            <Field label="Pays" hint="Code à deux lettres.">
+              <Input value={pays} maxLength={2} disabled={readOnly}
+                onChange={(e) => setPays(e.target.value.toUpperCase())} placeholder="CI" />
+            </Field>
+          </div>
+
+          <p className="mt-2 text-[12px]" style={{ color: 'var(--ink-3)' }}>
+            Changer ces valeurs n’affecte que les clés générées <em>ensuite</em> : un certificat
+            déjà émis ne se modifie pas.
+          </p>
+        </div>
+
         {!readOnly && (
           <Button variant="primary" loading={busy} onClick={async () => {
             setBusy(true);
@@ -167,6 +202,9 @@ function GeneralCard({ ws, onSaved }: { ws: Workspace | null; onSaved: (m: strin
                 name,
                 retentionDays: Number(retention),
                 maxConcurrent: Number(concurrent),
+                certOrganisation: organisation.trim() || null,
+                certVille: ville.trim() || null,
+                certPays: pays.trim().toUpperCase() || 'CI',
               });
               onSaved('Paramètres enregistrés.');
             } finally { setBusy(false); }

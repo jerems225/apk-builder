@@ -92,6 +92,16 @@ model Workspace {
   // machine. Empêche un client de monopoliser la file.
   maxConcurrent Int @default(2)
 
+  // Valeurs par défaut du nom distinctif des certificats de signature générés
+  // dans cet espace. Elles partent dans CHAQUE clé et s'affichent dans les
+  // outils d'inspection d'APK : les régler une fois évite de les ressaisir
+  // projet après projet, et évite surtout qu'elles soient fausses.
+  // Réglables par un propriétaire, et modifiables au cas par cas au moment de
+  // la génération — un client qui publie sous sa propre raison sociale.
+  certOrganisation String?
+  certVille        String?
+  certPays         String  @default("CI")
+
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

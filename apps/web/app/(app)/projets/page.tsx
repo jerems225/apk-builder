@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import Link from 'next/link';
@@ -18,12 +18,12 @@ import type {
 } from '@/lib/types';
 
 /**
- * DÃ©clenche le tÃ©lÃ©chargement d'un contenu reÃ§u en base64.
+ * Déclenche le téléchargement d'un contenu reçu en base64.
  *
- * Le magasin transite en base64 dans la rÃ©ponse JSON plutÃ´t que par une route
- * de fichier : une clÃ© privÃ©e derriÃ¨re une URL, mÃªme authentifiÃ©e, finit dans
+ * Le magasin transite en base64 dans la réponse JSON plutôt que par une route
+ * de fichier : une clé privée derrière une URL, même authentifiée, finit dans
  * un historique de navigateur ou un journal de frontal. Ici elle ne quitte
- * jamais la mÃ©moire de la page avant d'atterrir sur le disque de l'utilisateur.
+ * jamais la mémoire de la page avant d'atterrir sur le disque de l'utilisateur.
  */
 function telecharger(nom: string, base64: string, type = 'application/octet-stream') {
   const binaire = atob(base64);
@@ -47,10 +47,10 @@ function telechargerTexte(nom: string, contenu: string) {
 }
 
 const ABIS = [
-  { key: 'arm64-v8a', label: 'arm64-v8a', hint: 'Lâ€™essentiel du parc en service' },
-  { key: 'armeabi-v7a', label: 'armeabi-v7a', hint: 'TÃ©lÃ©phones 32 bits, grosso modo dâ€™avant 2015' },
-  { key: 'x86_64', label: 'x86_64', hint: 'Ã‰mulateurs, Ã©quipes QA' },
-  { key: 'x86', label: 'x86', hint: 'Anciens Ã©mulateurs' },
+  { key: 'arm64-v8a', label: 'arm64-v8a', hint: 'L’essentiel du parc en service' },
+  { key: 'armeabi-v7a', label: 'armeabi-v7a', hint: 'Téléphones 32 bits, grosso modo d’avant 2015' },
+  { key: 'x86_64', label: 'x86_64', hint: 'Émulateurs, équipes QA' },
+  { key: 'x86', label: 'x86', hint: 'Anciens émulateurs' },
 ];
 
 export default function ProjectsPage() {
@@ -69,7 +69,7 @@ export default function ProjectsPage() {
     <>
       <PageHeader
         title="Projets"
-        subtitle="Un projet = un dÃ©pÃ´t suivi, avec ses branches, sa tÃ¢che Gradle et sa clÃ© de signature."
+        subtitle="Un projet = un dépôt suivi, avec ses branches, sa tâche Gradle et sa clé de signature."
         actions={can('MAINTAINER') && (
           <Button variant="primary" icon={<IconPlus size={16} />} onClick={() => setEditing('new')}>
             Enregistrer un projet
@@ -81,11 +81,11 @@ export default function ProjectsPage() {
 
       {unsigned > 0 && (
         <div className="mb-4">
-          <Alert tone="warn" title={`${unsigned} projet${unsigned > 1 ? 's' : ''} sans clÃ© de release`}>
-            Ces APK gardent la clÃ© de debug dâ€™Android : publique, partagÃ©e par tout le monde, et
-            rÃ©gÃ©nÃ©rÃ©e si le cache du serveur est vidÃ©. Le jour oÃ¹ cela arrive, plus aucune mise Ã 
-            jour ne sâ€™installe par-dessus lâ€™existant â€” lâ€™utilisateur doit dÃ©sinstaller, donc perdre
-            ses donnÃ©es locales.
+          <Alert tone="warn" title={`${unsigned} projet${unsigned > 1 ? 's' : ''} sans clé de release`}>
+            Ces APK gardent la clé de debug d’Android : publique, partagée par tout le monde, et
+            régénérée si le cache du serveur est vidé. Le jour où cela arrive, plus aucune mise à
+            jour ne s’installe par-dessus l’existant — l’utilisateur doit désinstaller, donc perdre
+            ses données locales.
           </Alert>
         </div>
       )}
@@ -96,8 +96,8 @@ export default function ProjectsPage() {
         </div>
       ) : !projects || projects.length === 0 ? (
         <Card>
-          <EmptyState icon={<IconProjects size={20} />} title="Aucun projet enregistrÃ©"
-            description="Enregistrez un dÃ©pÃ´t pour que ses pushs dÃ©clenchent des builds et pour lui attribuer une clÃ© de signature."
+          <EmptyState icon={<IconProjects size={20} />} title="Aucun projet enregistré"
+            description="Enregistrez un dépôt pour que ses pushs déclenchent des builds et pour lui attribuer une clé de signature."
             action={can('MAINTAINER') && (
               <Button variant="primary" onClick={() => setEditing('new')}>Enregistrer un projet</Button>
             )} />
@@ -123,6 +123,7 @@ export default function ProjectsPage() {
       <KeystoreModal
         project={signing}
         keytoolDisponible={workspace?.keytoolDisponible ?? true}
+        certificat={workspace?.certificat ?? { organisation: '', ville: '', pays: 'CI' }}
         onClose={() => setSigning(null)}
         onSaved={(m) => { setSigning(null); setNotice(m); reload(true); }}
       />
@@ -130,7 +131,7 @@ export default function ProjectsPage() {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Carte projet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────────── Carte projet ───────────────────────────────
 
 function ProjectCard({
   project, onEdit, onSign, onChanged,
@@ -144,7 +145,7 @@ function ProjectCard({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h3 className="truncate text-[15px] font-semibold">{p.name}</h3>
-            {!p.enabled && <Badge tone="idle">DÃ©sactivÃ©</Badge>}
+            {!p.enabled && <Badge tone="idle">Désactivé</Badge>}
           </div>
           <p className="mt-0.5 truncate text-[12.5px]" style={{ color: 'var(--ink-3)' }}>{p.repoName}</p>
         </div>
@@ -159,13 +160,13 @@ function ProjectCard({
 
       <div className="grid grid-cols-2 gap-y-2 px-5 pb-4 text-[12.5px]">
         <Meta label="Branches">{p.branches.join(', ')}</Meta>
-        <Meta label="TÃ¢che Gradle"><code>{p.gradleTask}</code></Meta>
+        <Meta label="Tâche Gradle"><code>{p.gradleTask}</code></Meta>
         <Meta label="Architectures">{p.abis.join(', ')}</Meta>
-        <Meta label="Connexion">{p.provider ? p.provider.label : 'dÃ©pÃ´t public'}</Meta>
+        <Meta label="Connexion">{p.provider ? p.provider.label : 'dépôt public'}</Meta>
       </div>
 
-      {/* Bloc signature : mis en Ã©vidence parce que c'est la dÃ©cision la plus
-          lourde de consÃ©quences de toute la fiche projet. */}
+      {/* Bloc signature : mis en évidence parce que c'est la décision la plus
+          lourde de conséquences de toute la fiche projet. */}
       <div className={cx('mx-5 mb-4 rounded-lg px-3.5 py-3')}
         style={{ background: p.signing.configured ? 'var(--ok-wash)' : 'var(--warn-wash)' }}>
         <div className="flex items-start justify-between gap-3">
@@ -173,27 +174,27 @@ function ProjectCard({
             <p className="flex items-center gap-1.5 text-[13px] font-semibold"
               style={{ color: p.signing.configured ? 'var(--ok-ink)' : 'var(--warn-ink)' }}>
               <IconKey size={15} />
-              {p.signing.configured ? 'ClÃ© de release' : 'ClÃ© de debug'}
+              {p.signing.configured ? 'Clé de release' : 'Clé de debug'}
             </p>
             {p.signing.configured ? (
               <p className="mt-1 truncate text-[11.5px] tnum" style={{ color: 'var(--ok-ink)' }}>
-                {p.signing.alias} Â· {fingerprint(p.signing.fingerprint)}
+                {p.signing.alias} · {fingerprint(p.signing.fingerprint)}
               </p>
             ) : (
               <p className="mt-1 text-[12px] leading-snug" style={{ color: 'var(--warn-ink)' }}>
-                Impubliable, et non installable par-dessus une version antÃ©rieure.
+                Impubliable, et non installable par-dessus une version antérieure.
               </p>
             )}
           </div>
           {can('MAINTAINER') && (
             <Button size="sm" onClick={onSign}>
-              {p.signing.configured ? 'GÃ©rer la clÃ©' : 'CrÃ©er une clÃ©'}
+              {p.signing.configured ? 'Gérer la clé' : 'Créer une clé'}
             </Button>
           )}
         </div>
         {p.signing.configured && !p.signing.fileOnDisk && (
           <p className="mt-2 text-[12px] font-semibold" style={{ color: 'var(--danger-ink)' }}>
-            Le fichier est absent du serveur : les builds repartiront sur la clÃ© de debug.
+            Le fichier est absent du serveur : les builds repartiront sur la clé de debug.
           </p>
         )}
       </div>
@@ -207,7 +208,7 @@ function ProjectCard({
             <span className="flex items-center gap-2">
               <Badge tone={STATUS[p.lastBuild.status].tone}>{STATUS[p.lastBuild.status].label}</Badge>
               <span className="truncate">
-                {relative(p.lastBuild.createdAt)} Â· {bytes(p.lastBuild.apkSize)}
+                {relative(p.lastBuild.createdAt)} · {bytes(p.lastBuild.apkSize)}
               </span>
             </span>
           ) : 'Aucun build'}
@@ -222,9 +223,9 @@ function ProjectCard({
               className="grid h-7 w-7 place-items-center rounded-lg hover:bg-[var(--line)]"
               style={{ color: 'var(--danger-ink)' }}
               onClick={async () => {
-                if (!confirm(`Supprimer le projet Â« ${p.name} Â» ?\n\nSa clÃ© de signature est effacÃ©e du serveur. Les builds dÃ©jÃ  produits et leurs liens de tÃ©lÃ©chargement sont conservÃ©s.`)) return;
+                if (!confirm(`Supprimer le projet « ${p.name} » ?\n\nSa clé de signature est effacée du serveur. Les builds déjà produits et leurs liens de téléchargement sont conservés.`)) return;
                 await del(`/api/projects/${p.id}`);
-                onChanged('Projet supprimÃ©. Les builds dÃ©jÃ  produits sont conservÃ©s.');
+                onChanged('Projet supprimé. Les builds déjà produits sont conservés.');
               }}>
               <IconTrash size={15} />
             </button>
@@ -244,7 +245,7 @@ function Meta({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ CrÃ©ation / modification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────── Création / modification ────────────────────────────
 
 function ProjectModal({
   open, project, providers, onClose, onSaved,
@@ -287,7 +288,7 @@ function ProjectModal({
     try {
       if (project) await patch(`/api/projects/${project.id}`, body);
       else await post('/api/projects', body);
-      onSaved(project ? 'Projet enregistrÃ©.' : 'Projet ajoutÃ©.');
+      onSaved(project ? 'Projet enregistré.' : 'Projet ajouté.');
     } catch (e) {
       const err = e as { message: string; details?: Record<string, string> };
       setError(err.message);
@@ -300,7 +301,7 @@ function ProjectModal({
   return (
     <Modal open={open} onClose={onClose} wide
       title={project ? 'Modifier le projet' : 'Enregistrer un projet'}
-      subtitle="Ces rÃ©glages sont figÃ©s dans chaque build au moment de sa mise en file : un build reste reproductible mÃªme si le projet change ensuite."
+      subtitle="Ces réglages sont figés dans chaque build au moment de sa mise en file : un build reste reproductible même si le projet change ensuite."
       footer={
         <>
           <Button onClick={onClose}>Annuler</Button>
@@ -313,12 +314,12 @@ function ProjectModal({
         {error && <Alert tone="danger">{error}</Alert>}
 
         <div className="grid gap-3.5 sm:grid-cols-2">
-          <Field label="Nom affichÃ©" required error={fieldErrors.name}
-            hint="Libre : c'est ce que lit l'Ã©quipe.">
+          <Field label="Nom affiché" required error={fieldErrors.name}
+            hint="Libre : c'est ce que lit l'équipe.">
             <Input value={form.name} onChange={(e) => set('name', e.target.value)} required
               placeholder="Application livreur" />
           </Field>
-          <Field label="DÃ©pÃ´t" required error={fieldErrors.repoName}
+          <Field label="Dépôt" required error={fieldErrors.repoName}
             hint="Exactement comme le nomme le fournisseur Git.">
             <Input value={form.repoName} onChange={(e) => set('repoName', e.target.value)} required
               placeholder="upjunoo/app-livreur" />
@@ -331,29 +332,29 @@ function ProjectModal({
         </Field>
 
         <Field label="Connexion Git"
-          hint="Obligatoire pour un dÃ©pÃ´t privÃ©. Ã€ laisser vide pour un dÃ©pÃ´t public.">
+          hint="Obligatoire pour un dépôt privé. À laisser vide pour un dépôt public.">
           <Select value={form.providerId} onChange={(e) => set('providerId', e.target.value)}>
-            <option value="">â€” dÃ©pÃ´t public â€”</option>
+            <option value="">— dépôt public —</option>
             {providers.map((p) => <option key={p.id} value={p.id}>{p.label} ({p.host})</option>)}
           </Select>
         </Field>
 
         <div className="grid gap-3.5 sm:grid-cols-2">
-          <Field label="Branches surveillÃ©es" error={fieldErrors.branches}
-            hint="SÃ©parÃ©es par des virgules.">
+          <Field label="Branches surveillées" error={fieldErrors.branches}
+            hint="Séparées par des virgules.">
             <Input value={form.branches} onChange={(e) => set('branches', e.target.value)}
               placeholder="main,develop" />
           </Field>
           <Field label="Sous-dossier du projet" error={fieldErrors.appSubdir}
-            hint="Â« . Â» Ã  la racine, Â« apps/mobile Â» dans un monorepo.">
+            hint="« . » à la racine, « apps/mobile » dans un monorepo.">
             <Input value={form.appSubdir} onChange={(e) => set('appSubdir', e.target.value)} />
           </Field>
         </div>
 
-        <Field label="TÃ¢che Gradle" error={fieldErrors.gradleTask}
+        <Field label="Tâche Gradle" error={fieldErrors.gradleTask}
           hint={form.gradleTask.toLowerCase().includes('release') && !project?.signing.configured
-            ? 'assembleRelease sans clÃ© de signature produit un APK quâ€™Android refuse dâ€™installer. DÃ©posez la clÃ© dâ€™abord.'
-            : 'assembleDebug pour tester, assembleRelease pour distribuer â€” ce dernier exige une clÃ©.'}>
+            ? 'assembleRelease sans clé de signature produit un APK qu’Android refuse d’installer. Déposez la clé d’abord.'
+            : 'assembleDebug pour tester, assembleRelease pour distribuer — ce dernier exige une clé.'}>
           <Select value={form.gradleTask} onChange={(e) => set('gradleTask', e.target.value)}>
             <option value="assembleDebug">assembleDebug</option>
             <option value="assembleRelease">assembleRelease</option>
@@ -361,7 +362,7 @@ function ProjectModal({
         </Field>
 
         <Field label="Architectures natives"
-          hint="Une seule architecture divise nettement le poids de lâ€™APK. RÃ©glage ignorÃ© sous React Native 0.71.">
+          hint="Une seule architecture divise nettement le poids de l’APK. Réglage ignoré sous React Native 0.71.">
           <div className="grid gap-1.5 sm:grid-cols-2">
             {ABIS.map((a) => {
               const on = form.abis.includes(a.key);
@@ -388,7 +389,7 @@ function ProjectModal({
           <Toggle checked={form.enabled} onChange={(v) => set('enabled', v)}
             label="Projet actif" />
           <Toggle checked={form.buildTags} onChange={(v) => set('buildTags', v)}
-            label="Un tag dÃ©clenche un build" />
+            label="Un tag déclenche un build" />
         </div>
       </form>
     </Modal>
@@ -396,28 +397,29 @@ function ProjectModal({
 }
 
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ ClÃ© de signature du projet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────── Clé de signature du projet ──────────────────────────
 
 type Etape = 'accueil' | 'generer' | 'deposer' | 'resultat' | 'exporter';
 
 /**
- * Ã‰cran unique pour tout ce qui touche Ã  la clÃ© de release d'un projet :
- * gÃ©nÃ©rer, dÃ©poser un fichier existant, sauvegarder, retirer.
+ * Écran unique pour tout ce qui touche à la clé de release d'un projet :
+ * générer, déposer un fichier existant, sauvegarder, retirer.
  *
- * La gÃ©nÃ©ration cÃ´tÃ© serveur est proposÃ©e en premier. Demander Ã  chacun
+ * La génération côté serveur est proposée en premier. Demander à chacun
  * d'installer un JDK et de composer une ligne de keytool correcte produit des
- * clÃ©s RSA 2048 valides un an, des alias oubliÃ©s et des mots de passe choisis Ã 
- * la main. Ici les paramÃ¨tres sont ceux qu'on veut, Ã  chaque fois.
+ * clés RSA 2048 valides un an, des alias oubliés et des mots de passe choisis à
+ * la main. Ici les paramètres sont ceux qu'on veut, à chaque fois.
  *
- * La contrepartie est explicite : une clÃ© gÃ©nÃ©rÃ©e ici n'existe QUE sur ce
- * serveur tant qu'elle n'a pas Ã©tÃ© tÃ©lÃ©chargÃ©e. L'Ã©cran de rÃ©sultat refuse de
+ * La contrepartie est explicite : une clé générée ici n'existe QUE sur ce
+ * serveur tant qu'elle n'a pas été téléchargée. L'écran de résultat refuse de
  * se fermer avant que ce soit fait.
  */
 function KeystoreModal({
-  project, keytoolDisponible, onClose, onSaved,
+  project, keytoolDisponible, certificat, onClose, onSaved,
 }: {
   project: Project | null;
   keytoolDisponible: boolean;
+  certificat: { organisation: string; ville: string; pays: string };
   onClose: () => void;
   onSaved: (m: string) => void;
 }) {
@@ -432,7 +434,7 @@ function KeystoreModal({
     setErreur(null);
     setResultat(null);
     setBusy(false);
-    // Un projet sans clÃ© n'a rien Ã  consulter : on va droit au formulaire.
+    // Un projet sans clé n'a rien à consulter : on va droit au formulaire.
     setEtape(project.signing.configured ? 'accueil'
       : keytoolDisponible ? 'generer' : 'deposer');
   }, [project, keytoolDisponible]);
@@ -440,22 +442,22 @@ function KeystoreModal({
   if (!project) return null;
 
   const titres: Record<Etape, string> = {
-    accueil: 'ClÃ© de signature',
-    generer: project.signing.configured ? 'Remplacer par une nouvelle clÃ©' : 'CrÃ©er une clÃ© de signature',
-    deposer: 'DÃ©poser un magasin existant',
-    resultat: 'ClÃ© crÃ©Ã©e â€” Ã  sauvegarder maintenant',
-    exporter: 'Sauvegarder la clÃ©',
+    accueil: 'Clé de signature',
+    generer: project.signing.configured ? 'Remplacer par une nouvelle clé' : 'Créer une clé de signature',
+    deposer: 'Déposer un magasin existant',
+    resultat: 'Clé créée — à sauvegarder maintenant',
+    exporter: 'Sauvegarder la clé',
   };
 
   return (
     <Modal
       open wide
-      // L'Ã©cran de rÃ©sultat verrouille la fermeture tant que le magasin n'a pas
-      // Ã©tÃ© tÃ©lÃ©chargÃ© : c'est le seul moment oÃ¹ il est rÃ©cupÃ©rable sans
-      // rÃ©-authentification.
+      // L'écran de résultat verrouille la fermeture tant que le magasin n'a pas
+      // été téléchargé : c'est le seul moment où il est récupérable sans
+      // ré-authentification.
       onClose={etape === 'resultat' ? () => {} : onClose}
       title={titres[etape]}
-      subtitle={`Projet Â« ${project.name} Â» â€” ${project.repoName}`}
+      subtitle={`Projet « ${project.name} » — ${project.repoName}`}
     >
       {erreur && <div className="mb-3.5"><Alert tone="danger">{erreur}</Alert></div>}
 
@@ -470,14 +472,14 @@ function KeystoreModal({
           onFermer={onClose}
           onRetirer={async () => {
             if (!confirm(
-              'Retirer la clÃ© de ce projet ?\n\n' +
+              'Retirer la clé de ce projet ?\n\n' +
               'Les builds suivants repartiront sur la signature de debug, et ne pourront plus ' +
-              'remplacer une version dÃ©jÃ  installÃ©e. Le fichier est effacÃ© du serveur : sans ' +
-              'sauvegarde, il est dÃ©finitivement perdu.')) return;
+              'remplacer une version déjà installée. Le fichier est effacé du serveur : sans ' +
+              'sauvegarde, il est définitivement perdu.')) return;
             setBusy(true);
             try {
               await del(`/api/projects/${project.id}/keystore`);
-              onSaved('ClÃ© retirÃ©e. Les builds suivants utiliseront la signature de debug.');
+              onSaved('Clé retirée. Les builds suivants utiliseront la signature de debug.');
             } catch (e) {
               setErreur(e instanceof Error ? e.message : 'Retrait impossible');
               setBusy(false);
@@ -490,6 +492,7 @@ function KeystoreModal({
       {etape === 'generer' && (
         <FormulaireGeneration
           project={project}
+          certificat={certificat}
           onAnnuler={() => setEtape(project.signing.configured ? 'accueil' : 'accueil')}
           onBasculerDepot={() => setEtape('deposer')}
           onCree={(r) => { setResultat(r); setEtape('resultat'); }}
@@ -503,7 +506,7 @@ function KeystoreModal({
           keytoolDisponible={keytoolDisponible}
           onAnnuler={() => setEtape('accueil')}
           onBasculerGeneration={() => setEtape('generer')}
-          onDepose={() => onSaved('ClÃ© enregistrÃ©e et vÃ©rifiÃ©e. Le prochain build sera signÃ© avec elle.')}
+          onDepose={() => onSaved('Clé enregistrée et vérifiée. Le prochain build sera signé avec elle.')}
           onErreur={setErreur}
         />
       )}
@@ -512,7 +515,7 @@ function KeystoreModal({
         <Resultat
           project={project}
           resultat={resultat}
-          onTermine={() => onSaved('ClÃ© crÃ©Ã©e. Le prochain build sera signÃ© avec elle.')}
+          onTermine={() => onSaved('Clé créée. Le prochain build sera signé avec elle.')}
         />
       )}
 
@@ -527,7 +530,7 @@ function KeystoreModal({
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Accueil â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────── Accueil ─────────────────────────────────────
 
 function Accueil({
   project, keytoolDisponible, peutExporter, onGenerer, onDeposer, onExporter, onRetirer,
@@ -548,55 +551,55 @@ function Accueil({
     <div className="space-y-4">
       <div className="rounded-lg px-4 py-3.5" style={{ background: 'var(--ok-wash)' }}>
         <p className="flex items-center gap-2 text-[13.5px] font-semibold" style={{ color: 'var(--ok-ink)' }}>
-          <IconKey size={16} /> ClÃ© de release active
+          <IconKey size={16} /> Clé de release active
         </p>
         <dl className="mt-2.5 space-y-1.5 text-[12.5px]" style={{ color: 'var(--ok-ink)' }}>
           <Ligne label="Alias">{s.alias}</Ligne>
           <Ligne label="Empreinte SHA-256">
             <code className="break-all tnum">{s.fingerprint}</code>
           </Ligne>
-          <Ligne label="EnregistrÃ©e le">{fullDate(s.uploadedAt)}</Ligne>
-          <Ligne label="Fichier sur le serveur">{s.fileOnDisk ? 'prÃ©sent' : 'ABSENT'}</Ligne>
+          <Ligne label="Enregistrée le">{fullDate(s.uploadedAt)}</Ligne>
+          <Ligne label="Fichier sur le serveur">{s.fileOnDisk ? 'présent' : 'ABSENT'}</Ligne>
         </dl>
       </div>
 
       {!s.fileOnDisk && (
         <Alert tone="danger" title="Le fichier a disparu du serveur">
-          La fiche du projet dÃ©clare une clÃ©, mais le magasin nâ€™est plus sur le disque. Les
+          La fiche du projet déclare une clé, mais le magasin n’est plus sur le disque. Les
           prochains builds repartiront sur la signature de debug, et les APK produits ne
-          pourront plus remplacer ceux dÃ©jÃ  installÃ©s. RedÃ©posez votre sauvegarde.
+          pourront plus remplacer ceux déjà installés. Redéposez votre sauvegarde.
         </Alert>
       )}
 
       <div className="grid gap-2 sm:grid-cols-2">
         {peutExporter && s.fileOnDisk && (
           <Action
-            titre="Sauvegarder la clÃ©"
-            texte="TÃ©lÃ©charger le magasin et son mot de passe, pour les ranger hors de ce serveur."
+            titre="Sauvegarder la clé"
+            texte="Télécharger le magasin et son mot de passe, pour les ranger hors de ce serveur."
             icone={<IconDownload size={17} />}
             onClick={onExporter}
           />
         )}
         {keytoolDisponible && (
           <Action
-            titre="GÃ©nÃ©rer une nouvelle clÃ©"
-            texte="Remplace celle-ci. Oblige tous les utilisateurs Ã  rÃ©installer lâ€™application."
+            titre="Générer une nouvelle clé"
+            texte="Remplace celle-ci. Oblige tous les utilisateurs à réinstaller l’application."
             icone={<IconKey size={17} />}
             onClick={onGenerer}
             danger
           />
         )}
         <Action
-          titre="DÃ©poser un autre magasin"
-          texte="Si vous dÃ©tenez dÃ©jÃ  un fichier .jks pour cette application."
+          titre="Déposer un autre magasin"
+          texte="Si vous détenez déjà un fichier .jks pour cette application."
           icone={<IconPlus size={17} />}
           onClick={onDeposer}
           danger
         />
         {peutExporter && (
           <Action
-            titre="Retirer la clÃ©"
-            texte="Retour Ã  la signature de debug. Le fichier est effacÃ© du serveur."
+            titre="Retirer la clé"
+            texte="Retour à la signature de debug. Le fichier est effacé du serveur."
             icone={<IconTrash size={17} />}
             onClick={onRetirer}
             danger
@@ -642,14 +645,14 @@ function Action({
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ GÃ©nÃ©ration cÃ´tÃ© serveur â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ───────────────────────── Génération côté serveur ───────────────────────────
 
 const PAYS = [
-  { code: 'CI', nom: 'CÃ´te dâ€™Ivoire' },
-  { code: 'SN', nom: 'SÃ©nÃ©gal' },
+  { code: 'CI', nom: 'Côte d’Ivoire' },
+  { code: 'SN', nom: 'Sénégal' },
   { code: 'BF', nom: 'Burkina Faso' },
   { code: 'ML', nom: 'Mali' },
-  { code: 'BJ', nom: 'BÃ©nin' },
+  { code: 'BJ', nom: 'Bénin' },
   { code: 'TG', nom: 'Togo' },
   { code: 'CM', nom: 'Cameroun' },
   { code: 'FR', nom: 'France' },
@@ -658,9 +661,10 @@ const PAYS = [
 ];
 
 function FormulaireGeneration({
-  project, onAnnuler, onBasculerDepot, onCree, onErreur,
+  project, certificat, onAnnuler, onBasculerDepot, onCree, onErreur,
 }: {
   project: Project;
+  certificat: { organisation: string; ville: string; pays: string };
   onAnnuler: () => void;
   onBasculerDepot: () => void;
   onCree: (r: KeystoreGenerated) => void;
@@ -669,9 +673,12 @@ function FormulaireGeneration({
   const defautAlias = project.repoName.split('/').pop()!.replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 64);
   const [alias, setAlias] = React.useState(defautAlias);
   const [commonName, setCommonName] = React.useState(project.name);
-  const [organisation, setOrganisation] = React.useState('');
-  const [ville, setVille] = React.useState('Abidjan');
-  const [pays, setPays] = React.useState('CI');
+  // Pré-remplissage venu de l'espace de travail — réglé une fois dans
+  // Paramètres, plutôt que ressaisi à chaque projet. Reste modifiable ici pour
+  // un client qui publie sous sa propre raison sociale.
+  const [organisation, setOrganisation] = React.useState(certificat.organisation);
+  const [ville, setVille] = React.useState(certificat.ville);
+  const [pays, setPays] = React.useState(certificat.pays || 'CI');
   const [validite, setValidite] = React.useState('10950');
   const [taille, setTaille] = React.useState('4096');
   const [busy, setBusy] = React.useState(false);
@@ -691,7 +698,7 @@ function FormulaireGeneration({
       });
       onCree(r);
     } catch (err) {
-      onErreur(err instanceof Error ? err.message : 'GÃ©nÃ©ration impossible');
+      onErreur(err instanceof Error ? err.message : 'Génération impossible');
       setBusy(false);
     }
   }
@@ -699,20 +706,20 @@ function FormulaireGeneration({
   return (
     <form onSubmit={soumettre} className="space-y-3.5">
       <Alert tone={remplace ? 'danger' : 'warn'}
-        title={remplace ? 'Remplacer une clÃ© casse les mises Ã  jour' : 'Ã€ lire avant de continuer'}>
+        title={remplace ? 'Remplacer une clé casse les mises à jour' : 'À lire avant de continuer'}>
         {remplace
-          ? 'Android refuse catÃ©goriquement une mise Ã  jour signÃ©e par une clÃ© diffÃ©rente. Chaque utilisateur devra dÃ©sinstaller puis rÃ©installer lâ€™application, et perdra ce quâ€™elle stocke en local. Faites-le sur une version qui le justifie, pas sur un correctif.'
-          : 'Cette clÃ© devient lâ€™identitÃ© de publication de lâ€™application, pour toute sa vie. Aucune autoritÃ© ne peut la rÃ©gÃ©nÃ©rer : sa perte signifie que lâ€™application ne pourra plus jamais Ãªtre mise Ã  jour. Lâ€™Ã©cran suivant vous fera la tÃ©lÃ©charger.'}
+          ? 'Android refuse catégoriquement une mise à jour signée par une clé différente. Chaque utilisateur devra désinstaller puis réinstaller l’application, et perdra ce qu’elle stocke en local. Faites-le sur une version qui le justifie, pas sur un correctif.'
+          : 'Cette clé devient l’identité de publication de l’application, pour toute sa vie. Aucune autorité ne peut la régénérer : sa perte signifie que l’application ne pourra plus jamais être mise à jour. L’écran suivant vous fera la télécharger.'}
       </Alert>
 
       <div className="grid gap-3.5 sm:grid-cols-2">
-        <Field label="Alias de la clÃ©" required
-          hint="Identifie la clÃ© dans le magasin. Lettres, chiffres, point, tiret.">
+        <Field label="Alias de la clé" required
+          hint="Identifie la clé dans le magasin. Lettres, chiffres, point, tiret.">
           <Input value={alias} onChange={(e) => setAlias(e.target.value)} required
             pattern="[A-Za-z0-9._\-]{1,64}" />
         </Field>
-        <Field label="Nom de lâ€™application (CN)" required
-          hint="Visible dans les outils dâ€™inspection dâ€™APK.">
+        <Field label="Nom de l’application (CN)" required
+          hint="Visible dans les outils d’inspection d’APK.">
           <Input value={commonName} onChange={(e) => setCommonName(e.target.value)} required />
         </Field>
       </div>
@@ -720,7 +727,7 @@ function FormulaireGeneration({
       <div className="grid gap-3.5 sm:grid-cols-3">
         <Field label="Organisation">
           <Input value={organisation} onChange={(e) => setOrganisation(e.target.value)}
-            placeholder="Actum Dev" />
+            placeholder="Nom de votre organisation" />
         </Field>
         <Field label="Ville">
           <Input value={ville} onChange={(e) => setVille(e.target.value)} />
@@ -733,18 +740,18 @@ function FormulaireGeneration({
       </div>
 
       <div className="grid gap-3.5 sm:grid-cols-2">
-        <Field label="ValiditÃ©"
-          hint="Une clÃ© qui expire condamne lâ€™application Ã  changer dâ€™identitÃ©. Viser large.">
+        <Field label="Validité"
+          hint="Une clé qui expire condamne l’application à changer d’identité. Viser large.">
           <Select value={validite} onChange={(e) => setValidite(e.target.value)}>
-            <option value="10950">30 ans (recommandÃ©)</option>
+            <option value="10950">30 ans (recommandé)</option>
             <option value="18250">50 ans</option>
             <option value="3650">10 ans</option>
           </Select>
         </Field>
-        <Field label="Taille de la clÃ©"
-          hint="4096 bits ajoute quelques secondes Ã  la gÃ©nÃ©ration, une fois pour toutes.">
+        <Field label="Taille de la clé"
+          hint="4096 bits ajoute quelques secondes à la génération, une fois pour toutes.">
           <Select value={taille} onChange={(e) => setTaille(e.target.value)}>
-            <option value="4096">RSA 4096 (recommandÃ©)</option>
+            <option value="4096">RSA 4096 (recommandé)</option>
             <option value="3072">RSA 3072</option>
             <option value="2048">RSA 2048</option>
           </Select>
@@ -754,10 +761,10 @@ function FormulaireGeneration({
       <div className="rounded-lg px-3.5 py-3 text-[12px] leading-relaxed"
         style={{ background: 'var(--surface-sunken)', color: 'var(--ink-2)' }}>
         <p className="mb-1 font-semibold" style={{ color: 'var(--ink)' }}>Ce que fait le serveur</p>
-        GÃ©nÃ¨re un magasin <strong>PKCS12</strong> â€” et non JKS, format hÃ©ritÃ© â€”, tire le mot de
-        passe au sort sur 32 octets, relit le fichier produit pour en extraire lâ€™empreinte rÃ©elle,
-        puis le range en 0600 dans un rÃ©pertoire quâ€™aucune route ne dessert. Le mot de passe est
-        chiffrÃ© en base et ne vous sera montrÃ© quâ€™une fois, Ã  lâ€™Ã©cran suivant.
+        Génère un magasin <strong>PKCS12</strong> — et non JKS, format hérité —, tire le mot de
+        passe au sort sur 32 octets, relit le fichier produit pour en extraire l’empreinte réelle,
+        puis le range en 0600 dans un répertoire qu’aucune route ne dessert. Le mot de passe est
+        chiffré en base et ne vous sera montré qu’une fois, à l’écran suivant.
       </div>
 
       {remplace && (
@@ -766,8 +773,8 @@ function FormulaireGeneration({
           <input type="checkbox" checked={compris} onChange={(e) => setCompris(e.target.checked)}
             className="mt-0.5" />
           <span>
-            Je comprends que les utilisateurs ayant dÃ©jÃ  installÃ© cette application devront la
-            dÃ©sinstaller puis la rÃ©installer, en perdant ses donnÃ©es locales.
+            Je comprends que les utilisateurs ayant déjà installé cette application devront la
+            désinstaller puis la réinstaller, en perdant ses données locales.
           </span>
         </label>
       )}
@@ -775,12 +782,12 @@ function FormulaireGeneration({
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <button type="button" onClick={onBasculerDepot}
           className="text-[12.5px] font-semibold" style={{ color: 'var(--accent)' }}>
-          Jâ€™ai dÃ©jÃ  un fichier .jks â†’
+          J’ai déjà un fichier .jks →
         </button>
         <div className="flex gap-2">
           <Button type="button" onClick={onAnnuler}>Annuler</Button>
           <Button type="submit" variant="primary" loading={busy} disabled={!compris}>
-            {busy ? 'GÃ©nÃ©rationâ€¦' : 'GÃ©nÃ©rer la clÃ©'}
+            {busy ? 'Génération…' : 'Générer la clé'}
           </Button>
         </div>
       </div>
@@ -788,7 +795,7 @@ function FormulaireGeneration({
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ RÃ©sultat de la gÃ©nÃ©ration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────── Résultat de la génération ──────────────────────────
 
 function Resultat({
   project, resultat, onTermine,
@@ -797,25 +804,25 @@ function Resultat({
   const [noteEnregistree, setNoteEnregistree] = React.useState(false);
 
   const pensebete =
-    `ClÃ© de signature Android â€” ${project.name}\n` +
+    `Clé de signature Android — ${project.name}\n` +
     `${'='.repeat(60)}\n\n` +
-    `DÃ©pÃ´t        : ${project.repoName}\n` +
+    `Dépôt        : ${project.repoName}\n` +
     `Fichier      : ${resultat.magasin.nom}\n` +
     `Alias        : ${resultat.signing.alias}\n` +
     `Mot de passe : ${resultat.motDePasse}\n` +
     `Empreinte    : ${resultat.signing.fingerprint}\n` +
-    `Valide jusqu'au : ${resultat.validUntil ?? 'non relevÃ©'}\n` +
-    `CrÃ©Ã©e le     : ${new Date().toISOString()}\n\n` +
-    `En PKCS12, le magasin et la clÃ© partagent le mÃªme mot de passe.\n\n` +
+    `Valide jusqu'au : ${resultat.validUntil ?? 'non relevé'}\n` +
+    `Créée le     : ${new Date().toISOString()}\n\n` +
+    `En PKCS12, le magasin et la clé partagent le même mot de passe.\n\n` +
     `AVERTISSEMENT\n` +
-    `Aucune autoritÃ© ne rÃ©gÃ©nÃ¨re une clÃ© Android. Si ce fichier et ce mot de\n` +
-    `passe sont perdus, l'application ne pourra plus jamais Ãªtre mise Ã  jour :\n` +
-    `il faudra en publier une nouvelle, et chaque utilisateur devra dÃ©sinstaller\n` +
-    `l'ancienne. Rangez-les lÃ  oÃ¹ vivent les autres secrets de l'Ã©quipe.\n`;
+    `Aucune autorité ne régénère une clé Android. Si ce fichier et ce mot de\n` +
+    `passe sont perdus, l'application ne pourra plus jamais être mise à jour :\n` +
+    `il faudra en publier une nouvelle, et chaque utilisateur devra désinstaller\n` +
+    `l'ancienne. Rangez-les là où vivent les autres secrets de l'équipe.\n`;
 
   return (
     <div className="space-y-3.5">
-      <Alert tone="danger" title="Cette clÃ© nâ€™existe que sur ce serveur">
+      <Alert tone="danger" title="Cette clé n’existe que sur ce serveur">
         {resultat.avertissement}
       </Alert>
 
@@ -834,7 +841,7 @@ function Resultat({
 
         {resultat.validUntil && (
           <>
-            <p className="mt-3 text-[12px]" style={{ color: 'var(--ink-3)' }}>Valide jusquâ€™au</p>
+            <p className="mt-3 text-[12px]" style={{ color: 'var(--ink-3)' }}>Valide jusqu’au</p>
             <p className="text-[13px]">{resultat.validUntil}</p>
           </>
         )}
@@ -846,23 +853,23 @@ function Resultat({
             telecharger(resultat.magasin.nom, resultat.magasin.contenuBase64);
             setTelecharge(true);
           }}>
-          TÃ©lÃ©charger le magasin
+          Télécharger le magasin
         </Button>
         <Button icon={<IconDownload size={16} />}
           onClick={() => {
             telechargerTexte(`${resultat.magasin.nom}.infos.txt`, pensebete);
             setNoteEnregistree(true);
           }}>
-          TÃ©lÃ©charger le pense-bÃªte
+          Télécharger le pense-bête
         </Button>
       </div>
 
       <div className="rounded-lg px-3.5 py-3 text-[12.5px] leading-relaxed"
         style={{ background: 'var(--surface-sunken)', color: 'var(--ink-2)' }}>
-        <p className="mb-1 font-semibold" style={{ color: 'var(--ink)' }}>OÃ¹ ranger tout Ã§a</p>
-        LÃ  oÃ¹ vivent les autres secrets de lâ€™Ã©quipe â€” gestionnaire de mots de passe, coffre
-        chiffrÃ©. Pas dans le dÃ©pÃ´t Git, pas dans un dossier partagÃ© en clair. Un propriÃ©taire
-        pourra re-tÃ©lÃ©charger le magasin depuis cet Ã©cran, mais uniquement en ressaisissant son
+        <p className="mb-1 font-semibold" style={{ color: 'var(--ink)' }}>Où ranger tout ça</p>
+        Là où vivent les autres secrets de l’équipe — gestionnaire de mots de passe, coffre
+        chiffré. Pas dans le dépôt Git, pas dans un dossier partagé en clair. Un propriétaire
+        pourra re-télécharger le magasin depuis cet écran, mais uniquement en ressaisissant son
         propre mot de passe.
       </div>
 
@@ -870,16 +877,16 @@ function Resultat({
         style={{ color: 'var(--ink-2)' }}>
         <input type="checkbox" checked={noteEnregistree} className="mt-0.5"
           onChange={(e) => setNoteEnregistree(e.target.checked)} />
-        <span>Jâ€™ai notÃ© le mot de passe hors de ce serveur.</span>
+        <span>J’ai noté le mot de passe hors de ce serveur.</span>
       </label>
 
       <div className="flex items-center justify-between gap-3 pt-1">
         <span className="text-[12px]" style={{ color: 'var(--ink-3)' }}>
           {telecharge && noteEnregistree
             ? <span style={{ color: 'var(--ok-ink)' }}>
-                <IconCheck size={13} /> Sauvegarde confirmÃ©e.
+                <IconCheck size={13} /> Sauvegarde confirmée.
               </span>
-            : 'TÃ©lÃ©chargez le magasin et confirmez la note pour continuer.'}
+            : 'Téléchargez le magasin et confirmez la note pour continuer.'}
         </span>
         <Button variant="primary" onClick={onTermine} disabled={!telecharge || !noteEnregistree}>
           Terminer
@@ -889,7 +896,7 @@ function Resultat({
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ DÃ©pÃ´t d'un fichier â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────── Dépôt d'un fichier ─────────────────────────────
 
 function FormulaireDepot({
   project, keytoolDisponible, onAnnuler, onBasculerGeneration, onDepose, onErreur,
@@ -909,7 +916,7 @@ function FormulaireDepot({
   async function soumettre(e?: React.FormEvent) {
     e?.preventDefault();
     onErreur(null);
-    if (!fichier) { onErreur('Choisissez le fichier .jks Ã  dÃ©poser.'); return; }
+    if (!fichier) { onErreur('Choisissez le fichier .jks à déposer.'); return; }
     setBusy(true);
     const form = new FormData();
     form.append('keystore', fichier);
@@ -919,16 +926,16 @@ function FormulaireDepot({
       await upload(`/api/projects/${project.id}/keystore`, form);
       onDepose();
     } catch (err) {
-      onErreur(err instanceof Error ? err.message : 'DÃ©pÃ´t impossible');
+      onErreur(err instanceof Error ? err.message : 'Dépôt impossible');
       setBusy(false);
     }
   }
 
   return (
     <form onSubmit={soumettre} className="space-y-3.5">
-      <Alert tone="warn" title="VÃ©rification Ã  la rÃ©ception">
-        Le fichier est ouvert avec keytool avant dâ€™Ãªtre acceptÃ© : un mot de passe faux, un alias
-        absent ou un fichier corrompu sont signalÃ©s ici, pas au bout dâ€™un build de dix minutes.
+      <Alert tone="warn" title="Vérification à la réception">
+        Le fichier est ouvert avec keytool avant d’être accepté : un mot de passe faux, un alias
+        absent ou un fichier corrompu sont signalés ici, pas au bout d’un build de dix minutes.
       </Alert>
 
       <Field label="Fichier du magasin (.jks, .p12)" required>
@@ -942,39 +949,39 @@ function FormulaireDepot({
       </Field>
 
       <div className="grid gap-3.5 sm:grid-cols-2">
-        <Field label="Alias de la clÃ©" required
-          hint="Celui indiquÃ© Ã  la gÃ©nÃ©ration du magasin.">
+        <Field label="Alias de la clé" required
+          hint="Celui indiqué à la génération du magasin.">
           <Input value={alias} onChange={(e) => setAlias(e.target.value)} autoComplete="off" required />
         </Field>
         <Field label="Mot de passe du magasin" required
-          hint="En PKCS12, magasin et clÃ© partagent le mÃªme mot de passe.">
+          hint="En PKCS12, magasin et clé partagent le même mot de passe.">
           <Input type="password" value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)}
             autoComplete="new-password" required />
         </Field>
       </div>
 
       <p className="text-[12px] leading-relaxed" style={{ color: 'var(--ink-3)' }}>
-        Le mot de passe est chiffrÃ© en base et nâ€™est jamais rÃ©affichÃ©. Vous reconnaÃ®trez votre clÃ©
-        Ã  son empreinte SHA-256, affichÃ©e aprÃ¨s le dÃ©pÃ´t.
+        Le mot de passe est chiffré en base et n’est jamais réaffiché. Vous reconnaîtrez votre clé
+        à son empreinte SHA-256, affichée après le dépôt.
       </p>
 
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         {keytoolDisponible ? (
           <button type="button" onClick={onBasculerGeneration}
             className="text-[12.5px] font-semibold" style={{ color: 'var(--accent)' }}>
-            â† Laisser le serveur gÃ©nÃ©rer la clÃ©
+            ← Laisser le serveur générer la clé
           </button>
         ) : <span />}
         <div className="flex gap-2">
           <Button type="button" onClick={onAnnuler}>Annuler</Button>
-          <Button type="submit" variant="primary" loading={busy}>VÃ©rifier et enregistrer</Button>
+          <Button type="submit" variant="primary" loading={busy}>Vérifier et enregistrer</Button>
         </div>
       </div>
     </form>
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Export pour sauvegarde â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────── Export pour sauvegarde ──────────────────────────
 
 function FormulaireExport({
   project, onAnnuler, onErreur,
@@ -1015,12 +1022,12 @@ function FormulaireExport({
 
         <Button variant="primary" icon={<IconDownload size={16} />} className="w-full"
           onClick={() => telecharger(donnees.nom, donnees.contenuBase64)}>
-          TÃ©lÃ©charger {donnees.nom}
+          Télécharger {donnees.nom}
         </Button>
 
         <p className="text-[12px] leading-relaxed" style={{ color: 'var(--ink-3)' }}>
-          Cet export est inscrit au journal dâ€™activitÃ© de lâ€™espace, avec votre nom et lâ€™heure.
-          Câ€™est volontaire : la sortie dâ€™une clÃ© privÃ©e doit laisser une trace.
+          Cet export est inscrit au journal d’activité de l’espace, avec votre nom et l’heure.
+          C’est volontaire : la sortie d’une clé privée doit laisser une trace.
         </p>
 
         <div className="flex justify-end">
@@ -1032,9 +1039,9 @@ function FormulaireExport({
 
   return (
     <form onSubmit={soumettre} className="space-y-3.5">
-      <Alert tone="warn" title="RÃ©-authentification">
-        Cette action dÃ©livre une clÃ© privÃ©e. Ressaisissez <strong>votre</strong> mot de passe de
-        compte : câ€™est ce qui distingue une demande lÃ©gitime dâ€™une session volÃ©e.
+      <Alert tone="warn" title="Ré-authentification">
+        Cette action délivre une clé privée. Ressaisissez <strong>votre</strong> mot de passe de
+        compte : c’est ce qui distingue une demande légitime d’une session volée.
       </Alert>
 
       <Field label="Votre mot de passe" required>
@@ -1044,7 +1051,7 @@ function FormulaireExport({
 
       <div className="flex justify-end gap-2 pt-1">
         <Button type="button" onClick={onAnnuler}>Annuler</Button>
-        <Button type="submit" variant="primary" loading={busy}>Afficher et tÃ©lÃ©charger</Button>
+        <Button type="submit" variant="primary" loading={busy}>Afficher et télécharger</Button>
       </div>
     </form>
   );

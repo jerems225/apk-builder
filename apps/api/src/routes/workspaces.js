@@ -40,6 +40,12 @@ function publicWorkspace(ws, role) {
     // L'interface n'offre la génération de clé que si keytool est installé :
     // mieux vaut ne pas proposer un bouton qui échouera.
     keytoolDisponible: keystore.available(),
+    // Pré-remplissage du certificat, à régler une fois pour tout l'espace.
+    certificat: {
+      organisation: ws.certOrganisation || '',
+      ville: ws.certVille || '',
+      pays: ws.certPays || 'CI',
+    },
     createdAt: ws.createdAt,
   };
 }
@@ -105,10 +111,22 @@ const updateSchema = z.object({
   name: z.string().trim().min(2).max(80).optional(),
   retentionDays: z.number().int().min(0).max(3650).nullable().optional(),
   maxConcurrent: z.number().int().min(1).max(8).optional(),
+  // Valeurs par défaut du certificat. La chaîne vide vaut « pas de valeur » :
+  // un champ O= vide dans un nom distinctif serait refusé par keytool.
+  certOrganisation: z.string().trim().max(64).nullable().optional(),
+  certVille: z.string().trim().max(64).nullable().optional(),
+  certPays: z.string().trim().length(2, 'Code pays à deux lettres').optional(),
 });
 
 router.patch('/current', auth.requireRole('OWNER'), asyncRoute(async (req, res) => {
   const body = parseBody(updateSchema, req.body);
+  // Un champ vidé dans l'interface doit effacer la valeur, pas enregistrer une
+  // chaîne vide : keytool refuse un « O= » sans contenu dans le nom distinctif.
+  for (const k of ['certOrganisation', 'certVille']) {
+    if (body[k] === '') body[k] = null;
+  }
+  if (body.certPays) body.certPays = body.certPays.toUpperCase();
+
   const ws = await prisma.workspace.update({ where: { id: req.workspace.id }, data: body });
   audit.record(req, 'workspace.update', ws.id, body);
   res.json(publicWorkspace(ws, req.role));
