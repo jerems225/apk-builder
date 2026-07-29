@@ -1,0 +1,42 @@
+[Unit]
+Description=Builder APK — interface Next.js
+Documentation=https://github.com/jerems225/apk-builder
+After=network-online.target apkbuild-api.service
+Wants=apkbuild-api.service
+
+[Service]
+Type=simple
+User=apkbuild
+Group=apkbuild
+WorkingDirectory=/srv/apkbuild/app/apps/web
+Environment=NODE_ENV=production
+Environment=HOME=/srv/apkbuild
+Environment=PORT=3000
+# L'interface n'écoute que sur la boucle locale : Apache est le seul point
+# d'entrée public, et lui seul termine TLS.
+Environment=HOSTNAME=127.0.0.1
+ExecStart=/usr/bin/npx next start -p 3000 -H 127.0.0.1
+
+Restart=always
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=120
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/srv/apkbuild
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+LimitNOFILE=65535
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=apkbuild-web
+
+[Install]
+WantedBy=multi-user.target

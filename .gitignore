@@ -1,0 +1,46 @@
+# Dépendances
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Build
+dist/
+build/
+
+# Secrets et données locales — rien de ceci ne doit partir sur GitHub
+.env
+.env.local
+.env.*.local
+*.jks
+*.keystore
+*.p12
+keystores/
+
+# Base SQLite et artefacts de build
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+artifacts/
+work/
+cache/
+
+# Scripts de déploiement jetables
+.tmp/
+
+# Système
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp

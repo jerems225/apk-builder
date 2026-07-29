@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+/* Le thème est piloté par un attribut posé sur <html>, pas par une classe :
+   il est écrit avant l'hydratation par un script inline, ce qui évite le
+   clignotement clair→sombre au chargement. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  --radius-card: 14px;
+}
+
+/* ─────────────────────── Jetons de surface et d'encre ──────────────────────
+   Écrits en variables CSS plutôt qu'en classes Tailwind conditionnelles :
+   les graphiques SVG les lisent directement, et le basculement clair/sombre
+   se fait alors en un seul endroit au lieu d'être dupliqué sur chaque marque. */
+:root {
+  color-scheme: light;
+
+  --plane: #f4f6f9;          /* fond de page */
+  --surface: #ffffff;        /* carte */
+  --surface-sunken: #f8fafc; /* en-tête de tableau, zones creuses */
+  --line: #e6e9ef;           /* filet */
+  --line-strong: #d3d8e0;
+
+  --ink: #0f172a;
+  --ink-2: #4b5563;
+  --ink-3: #8b94a3;          /* axes, étiquettes */
+
+  --accent: #2563eb;
+  --accent-ink: #ffffff;
+  --accent-wash: #eff5ff;
+
+  /* Séries de graphique — validées ensemble (voir docs/interface.md) */
+  --series-1: #2a78d6;
+  --series-2: #d03b3b;
+  --grid: #e6e9ef;
+  --baseline: #cbd2dc;
+
+  /* États. Chaque pastille porte un libellé : la couleur ne dit jamais seule. */
+  --ok: #0ca30c;
+  --ok-wash: #e8f7e8;
+  --ok-ink: #056105;
+  --warn: #fab219;
+  --warn-wash: #fef4e0;
+  --warn-ink: #8a5a00;
+  --danger: #d03b3b;
+  --danger-wash: #fdeceb;
+  --danger-ink: #9e1f1f;
+  --idle-wash: #eef1f6;
+  --idle-ink: #4b5563;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --plane: #0a0e17;
+  --surface: #111827;
+  --surface-sunken: #161f31;
+  --line: #232d40;
+  --line-strong: #33405a;
+
+  --ink: #f1f5f9;
+  --ink-2: #a8b3c4;
+  --ink-3: #7d879a;
+
+  --accent: #3b82f6;
+  --accent-ink: #061021;
+  --accent-wash: #16233c;
+
+  --series-1: #3987e5;
+  --series-2: #d03b3b;
+  --grid: #1e2739;
+  --baseline: #33405a;
+
+  --ok: #0ca30c;
+  --ok-wash: #0f2a15;
+  --ok-ink: #6ee07a;
+  --warn: #fab219;
+  --warn-wash: #2e2410;
+  --warn-ink: #f5c65a;
+  --danger: #e05252;
+  --danger-wash: #2e1416;
+  --danger-ink: #f79a9a;
+  --idle-wash: #1c2434;
+  --idle-ink: #a8b3c4;
+}
+
+@layer base {
+  * { border-color: var(--line); }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    background: var(--plane);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Anneau de focus visible partout : la navigation au clavier est le mode
+     normal d'un outil d'exploitation, pas un cas limite. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  ::selection { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 999px;
+    border: 3px solid var(--plane);
+  }
+}
+
+@layer components {
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+  }
+
+  /* Colonnes de chiffres alignées verticalement. Réservé aux tableaux et aux
+     graduations : ailleurs, les chiffres proportionnels se lisent mieux. */
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface-sunken) 25%,
+      color-mix(in srgb, var(--line) 60%, var(--surface-sunken)) 37%, var(--surface-sunken) 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+    border-radius: 8px;
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.rise { animation: rise .28s cubic-bezier(.22,.61,.36,1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

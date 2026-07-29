@@ -1,0 +1,46 @@
+[Unit]
+Description=Builder APK — API, worker de build et documentation
+Documentation=https://github.com/jerems225/apk-builder
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=apkbuild
+Group=apkbuild
+WorkingDirectory=/srv/apkbuild/app/apps/api
+Environment=NODE_ENV=production
+Environment=APKBUILD_ROOT=/srv/apkbuild
+Environment=HOME=/srv/apkbuild
+ExecStart=/usr/bin/node src/index.js
+
+Restart=always
+RestartSec=5
+# Un redémarrage en boucle sature le journal et masque la cause réelle :
+# au-delà de 5 échecs en 2 minutes, systemd s'arrête et laisse le service en
+# erreur, ce qui est visible dans `systemctl status`.
+StartLimitBurst=5
+StartLimitIntervalSec=120
+
+# Le service pilote Docker : il ne peut pas être enfermé autant qu'un service
+# purement applicatif. Ces protections restent compatibles avec cet usage.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/srv/apkbuild
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+# Les builds Gradle ouvrent beaucoup de fichiers simultanément ; la limite par
+# défaut (1024) provoque des échecs intermittents difficiles à relier à leur cause.
+LimitNOFILE=65535
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=apkbuild-api
+
+[Install]
+WantedBy=multi-user.target

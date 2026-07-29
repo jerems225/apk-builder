@@ -1,0 +1,308 @@
+// Schéma de la plateforme de build APK.
+//
+// Provider SQLite volontairement conservé : la machine héberge déjà Supabase et
+// Redis, coupler le builder à l'un ou l'autre le rendrait solidaire de leurs
+// pannes. Le volume attendu (quelques milliers de builds) tient sans difficulté.
+//
+// Conséquence à connaître : Prisma ne gère pas les `enum` sur SQLite. Les
+// champs concernés sont des String dont les valeurs admises sont listées en
+// commentaire au-dessus de chacun, et validées côté API (src/lib/enums.js).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────── Identités ───────────────────────────────────
+
+model User {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  name         String
+  passwordHash String
+  avatarColor  String  @default("#2563eb") // initiales colorées dans l'interface
+
+  // Super-administrateur : voit et administre tous les espaces. Réservé à
+  // l'exploitant de la plateforme, pas aux clients.
+  isSuperAdmin Boolean @default(false)
+  isActive     Boolean @default(true)
+
+  // Posé à la création par un administrateur : l'interface force le changement
+  // avant de laisser accéder au reste.
+  mustChangePassword Boolean @default(false)
+
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  memberships   Membership[]
+  sessions      Session[]
+  auditLogs     AuditLog[]
+  createdTokens ApiToken[]   @relation("ApiTokenCreator")
+  invitesSent   Invitation[] @relation("InvitationInviter")
+
+  @@index([email])
+}
+
+// Session opaque. Le cookie ne porte qu'un secret aléatoire ; la base n'en
+// garde que le SHA-256. Un vol de la base ne permet donc pas de rejouer une
+// session, et la déconnexion est réellement effective — ce qu'un JWT sans état
+// ne permet pas.
+model Session {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent String?
+  ip        String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  // Espace sélectionné dans l'interface. Stocké côté serveur pour qu'un
+  // rechargement de page ne fasse pas perdre le contexte.
+  currentWorkspaceId String?
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ────────────────────────── Espaces de travail ───────────────────────────────
+
+// Un espace = un client ou une équipe. C'est l'unité d'isolation : projets,
+// connexions Git, builds et clés de signature en dépendent tous.
+model Workspace {
+  id   String @id @default(uuid())
+  name String
+  slug String @unique // utilisé dans l'URL de webhook, donc [a-z0-9-] seulement
+
+  // Secret HMAC propre à l'espace, chiffré en AES-256-GCM comme les tokens Git.
+  // Un secret par espace, et non un secret global : sans cela, le webhook d'un
+  // client permettrait de déclencher des builds chez un autre.
+  webhookSecretEnc  String?
+  webhookSecretHint String?
+
+  // Rétention des APK en jours. 0 = illimité. Null = valeur globale du .env.
+  retentionDays Int?
+
+  // Plafond de builds simultanés pour cet espace, dans la limite du plafond
+  // machine. Empêche un client de monopoliser la file.
+  maxConcurrent Int @default(2)
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships Membership[]
+  projects    Project[]
+  providers   Provider[]
+  builds      Build[]
+  apiTokens   ApiToken[]
+  auditLogs   AuditLog[]
+  invitations Invitation[]
+
+  @@index([slug])
+}
+
+// Rôles, du plus large au plus restreint :
+//   OWNER      administre l'espace, l'équipe, les clés de signature, supprime
+//   MAINTAINER projets, connexions Git, clés, lance et annule des builds
+//   DEVELOPER  lance des builds, consulte les journaux, télécharge
+//   VIEWER     lecture seule
+model Membership {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role        String    @default("DEVELOPER")
+  createdAt   DateTime  @default(now())
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+model Invitation {
+  id          String    @id @default(uuid())
+  email       String
+  role        String    @default("DEVELOPER")
+  tokenHash   String    @unique
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedById String
+  invitedBy   User      @relation("InvitationInviter", fields: [invitedById], references: [id])
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId])
+}
+
+// ──────────────────────────── Connexions Git ─────────────────────────────────
+
+// kind : github | gitlab | gitea | generic
+model Provider {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  label String
+  kind  String @default("github")
+  host  String @default("github.com")
+
+  // Le token n'existe jamais en clair en base et ne ressort jamais vers
+  // l'interface : l'utilisateur le reconnaît à son empreinte (tokenHint).
+  tokenEnc  String?
+  tokenHint String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects Project[]
+
+  @@index([workspaceId])
+}
+
+// ─────────────────────────────── Projets ─────────────────────────────────────
+
+model Project {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name     String // libellé lisible, affiché dans l'interface
+  repoName String // org/depot tel que le fournisseur Git le nomme
+  repoUrl  String
+
+  providerId String?
+  provider   Provider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+
+  appSubdir  String @default(".")
+  gradleTask String @default("assembleDebug")
+  branches   String @default("main") // liste séparée par des virgules
+
+  // Architectures passées à Gradle via -PreactNativeArchitectures.
+  // arm64-v8a seul couvre l'essentiel du parc et divise la taille de l'APK ;
+  // les émulateurs QA ont besoin de x86_64, d'où le réglage par projet.
+  // Ignoré silencieusement en dessous de React Native 0.71.
+  abis String @default("arm64-v8a")
+
+  buildTags Boolean @default(true)
+  enabled   Boolean @default(true)
+
+  // ── Signature de release, une clé par projet ──────────────────────────────
+  // Le fichier .jks vit dans <root>/keystores/<projet>.jks en 0600, jamais
+  // dans artifacts/ qui est servi publiquement.
+  keystoreFile        String? // nom de fichier seul, pas de chemin
+  keystoreAlias       String?
+  keystorePassEnc     String? // chiffré, jamais réaffiché
+  keystoreFingerprint String? // SHA-256, seule trace lisible de la clé
+  keystoreUploadedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  builds Build[]
+
+  // Unique par espace et non globalement : deux clients peuvent forker le même
+  // dépôt public sans se marcher dessus.
+  @@unique([workspaceId, repoName])
+  @@index([workspaceId])
+}
+
+// ──────────────────────────────── Builds ─────────────────────────────────────
+
+// status : queued | running | success | failed | cancelled
+// source : webhook | manuel | api | relance
+// refType: branch | tag
+model Build {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  // Nullable : un projet supprimé ne doit pas emporter l'historique de ses
+  // builds ni casser les liens de téléchargement déjà distribués.
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  repoUrl     String
+  repoName    String
+  ref         String
+  refType     String  @default("branch")
+  commitSha   String?
+  triggeredBy String?
+  source      String  @default("webhook")
+
+  appSubdir  String @default(".")
+  gradleTask String @default("assembleDebug")
+  abis       String @default("arm64-v8a")
+
+  status     String  @default("queued")
+  apkName    String?
+  apkSize    Int?
+  appVersion String?
+  exitCode   Int?
+  error      String?
+
+  // Empreinte de la clé ayant réellement signé l'APK. Consignée au build et
+  // non lue depuis le projet : si la clé change ensuite, l'historique reste
+  // exact et une régression de signature se voit immédiatement.
+  signedWith String?
+
+  createdAt  DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
+  @@index([repoName, status])
+  @@index([projectId])
+}
+
+// ───────────────────────── Jetons machine (CI) ───────────────────────────────
+
+// Pour déclencher un build depuis une CI tierce sans compte utilisateur.
+// Même principe que les sessions : seul le SHA-256 est stocké.
+model ApiToken {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  label       String
+  tokenHash   String  @unique
+  tokenHint   String
+  createdById String
+  createdBy   User    @relation("ApiTokenCreator", fields: [createdById], references: [id])
+
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([workspaceId])
+}
+
+// ──────────────────────────── Journal d'audit ────────────────────────────────
+
+// Qui a fait quoi, quand. Indispensable dès lors que plusieurs personnes
+// partagent un espace : sans cela, une clé de signature remplacée est
+// intraçable.
+model AuditLog {
+  id          String     @id @default(uuid())
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  action String // ex: project.keystore.upload
+  target String? // identifiant de l'objet concerné
+  detail String? // JSON sérialisé, jamais de secret
+  ip     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+}

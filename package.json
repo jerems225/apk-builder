@@ -1,0 +1,21 @@
+{
+  "name": "apk-builder",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Plateforme multi-utilisateurs de build d'APK React Native (Expo managed + bare) declenchee par webhook Git",
+  "engines": { "node": ">=20" },
+  "workspaces": ["apps/api", "apps/web"],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/api & npm run dev --workspace=apps/web",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspace=apps/web",
+    "db:generate": "npm run db:generate --workspace=apps/api",
+    "db:push": "npm run db:push --workspace=apps/api",
+    "db:migrate": "npm run db:migrate --workspace=apps/api",
+    "db:studio": "npm run db:studio --workspace=apps/api",
+    "seed": "npm run seed --workspace=apps/api",
+    "start:api": "npm start --workspace=apps/api",
+    "start:web": "npm start --workspace=apps/web"
+  }
+}
