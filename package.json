@@ -10,11 +10,12 @@
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:web": "npm run dev --workspace=apps/web",
     "build": "npm run build --workspace=apps/web",
-    "db:generate": "npm run db:generate --workspace=apps/api",
-    "db:push": "npm run db:push --workspace=apps/api",
-    "db:migrate": "npm run db:migrate --workspace=apps/api",
-    "db:studio": "npm run db:studio --workspace=apps/api",
-    "seed": "npm run seed --workspace=apps/api",
+    "db:generate": "node apps/api/src/scripts/prisma.js generate",
+    "db:push": "node apps/api/src/scripts/prisma.js db push",
+    "db:migrate": "node apps/api/src/scripts/prisma.js migrate deploy",
+    "db:studio": "node apps/api/src/scripts/prisma.js studio",
+    "seed": "node apps/api/src/scripts/seed.js",
+    "migrate:legacy": "node apps/api/src/scripts/migrate-legacy.js",
     "start:api": "npm start --workspace=apps/api",
     "start:web": "npm start --workspace=apps/web"
   }
