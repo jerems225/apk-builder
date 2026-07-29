@@ -403,6 +403,11 @@ stocké — il n'est lisible qu'à sa création.
   installation vers une autre machine : ce qui doit voyager, dans quel ordre,
   comment réduire l'interruption à quelques minutes, et les pièges rencontrés
   en conditions réelles.
+- [`docs/compiler-des-applications-de-bureau.md`](docs/compiler-des-applications-de-bureau.md)
+  — note de conception, **non implémentée** : compiler des applications Electron
+  (`.exe`, `.msi`) depuis un dépôt Git, comme les APK. Ce qui est possible sous
+  Linux via Wine, le passage au modèle multi-artefacts qui en est le préalable,
+  et la question de périmètre à trancher avant de commencer.
 
 La documentation d'API interactive est servie sur `/api/docs`, derrière un
 formulaire de connexion : elle décrit précisément la surface d'attaque du
