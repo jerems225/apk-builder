@@ -62,10 +62,19 @@ signature qui n'existe pas et échoue là-dessus.
 
 ### Prérequis
 
-- Windows, pour produire des binaires Windows sans machine virtuelle.
 - Node 20 ou plus.
 - Une connexion : la première construction télécharge Electron (~100 Mo), puis
-  WiX pour la cible MSI. Les suivantes sont hors ligne.
+  NSIS et WiX. Les suivantes sont hors ligne.
+- **Windows n'est pas obligatoire.** `electron-builder` exécute NSIS comme WiX
+  sous Wine hors Windows — c'est explicite dans son code
+  (`app-builder-lib/out/targets/MsiTarget.js:28`). Les installateurs de ce
+  dossier ont été produits sous Windows, donc ce chemin n'a pas été éprouvé
+  ici : à valider par un build réel avant de s'en servir en automatique.
+  Seul le `.dmg` macOS reste hors de portée, comme iOS côté Android.
+
+Construire ces installateurs depuis le service, déclenché par webhook Git,
+est étudié dans
+[`docs/compiler-des-applications-de-bureau.md`](../../docs/compiler-des-applications-de-bureau.md).
 
 ---
 
