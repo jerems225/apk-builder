@@ -8,10 +8,12 @@ import { PageHeader } from '@/components/shell';
 import {
   Card, Badge, Button, Field, Input, Select, Modal, EmptyState, Alert, Skeleton,
 } from '@/components/ui';
-import { IconBuilds, IconPlus, IconRerun, IconTrash, IconStop, IconSearch } from '@/components/ui/icons';
+import {
+  IconBuilds, IconPlus, IconRerun, IconTrash, IconStop, IconSearch, IconLink,
+} from '@/components/ui/icons';
 import { post, del } from '@/lib/api';
 import { bytes, duration, relative, STATUS } from '@/lib/format';
-import type { Build, Project, BuildStatus } from '@/lib/types';
+import type { Build, Project, BuildStatus, WorkspaceRef } from '@/lib/types';
 
 const FILTERS: { key: BuildStatus | 'all'; label: string }[] = [
   { key: 'all', label: 'Tous' },
@@ -30,6 +32,10 @@ function BuildsScreen() {
   const [search, setSearch] = React.useState(params.get('q') || '');
   const [creating, setCreating] = React.useState(params.get('nouveau') === '1');
   const [notice, setNotice] = React.useState<string | null>(null);
+  // Sélection pour le transfert vers un autre espace. Un Set plutôt qu'un
+  // tableau : l'appartenance est testée à chaque ligne du tableau.
+  const [selection, setSelection] = React.useState<Set<string>>(new Set());
+  const [transfert, setTransfert] = React.useState(false);
 
   const query = new URLSearchParams({ limit: '100' });
   if (status !== 'all') query.set('status', status);
@@ -38,6 +44,10 @@ function BuildsScreen() {
   const { data, loading, reload } = useResource<{ total: number; items: Build[] }>(
     `/api/builds?${query.toString()}`, [status, search], 6000,
   );
+
+  // Une sélection qui survit à un changement de filtre porterait sur des
+  // lignes devenues invisibles : on la vide.
+  React.useEffect(() => { setSelection(new Set()); }, [status, search]);
 
   // Recherche différée : relancer la requête à chaque frappe ferait vingt
   // appels pour un mot de dix lettres.
@@ -94,6 +104,20 @@ function BuildsScreen() {
         </div>
       </Card>
 
+      {selection.size > 0 && can('OWNER') && (
+        <Card className="mb-4 flex flex-wrap items-center gap-3 px-4 py-3">
+          <span className="text-[13px] font-medium">
+            {selection.size} build{selection.size > 1 ? 's' : ''} sélectionné{selection.size > 1 ? 's' : ''}
+          </span>
+          <div className="flex-1" />
+          <Button size="sm" onClick={() => setSelection(new Set())}>Tout désélectionner</Button>
+          <Button size="sm" variant="primary" icon={<IconLink size={15} />}
+            onClick={() => setTransfert(true)}>
+            Transférer vers un autre espace
+          </Button>
+        </Card>
+      )}
+
       <Card className="overflow-hidden">
         {loading && !data ? (
           <div className="space-y-2 p-4">
@@ -115,6 +139,14 @@ function BuildsScreen() {
             <table className="w-full text-[13px]">
               <thead>
                 <tr style={{ background: 'var(--surface-sunken)', color: 'var(--ink-3)' }}>
+                  {can('OWNER') && (
+                    <th className="w-9 pl-4">
+                      <input type="checkbox" aria-label="Tout sélectionner"
+                        checked={data.items.length > 0 && selection.size === data.items.length}
+                        onChange={(e) => setSelection(e.target.checked
+                          ? new Set(data.items.map((b) => b.id)) : new Set())} />
+                    </th>
+                  )}
                   <th className="px-4 py-2.5 text-left text-[11.5px] font-semibold uppercase tracking-wide">Projet</th>
                   <th className="px-3 py-2.5 text-left text-[11.5px] font-semibold uppercase tracking-wide">Référence</th>
                   <th className="px-3 py-2.5 text-left text-[11.5px] font-semibold uppercase tracking-wide">État</th>
@@ -129,6 +161,17 @@ function BuildsScreen() {
                 {data.items.map((b) => (
                   <tr key={b.id} className="border-t transition-colors hover:bg-[var(--surface-sunken)]"
                     style={{ borderColor: 'var(--line)' }}>
+                    {can('OWNER') && (
+                      <td className="pl-4">
+                        <input type="checkbox" aria-label={`Sélectionner ${b.repoName}`}
+                          checked={selection.has(b.id)}
+                          onChange={(e) => setSelection((s) => {
+                            const n = new Set(s);
+                            if (e.target.checked) n.add(b.id); else n.delete(b.id);
+                            return n;
+                          })} />
+                      </td>
+                    )}
                     <td className="px-4 py-3">
                       <Link href={`/builds/${b.id}`} className="font-medium hover:underline">
                         {b.projectName || b.repoName}
@@ -208,6 +251,18 @@ function BuildsScreen() {
 
       <NewBuildModal open={creating} onClose={() => setCreating(false)}
         onCreated={() => { setCreating(false); reload(true); }} />
+
+      <TransfertModal
+        open={transfert}
+        buildIds={[...selection]}
+        onClose={() => setTransfert(false)}
+        onFait={(m) => {
+          setTransfert(false);
+          setSelection(new Set());
+          setNotice(m);
+          reload(true);
+        }}
+      />
     </>
   );
 }
@@ -304,6 +359,124 @@ function NewBuildModal({
           </div>
         )}
       </form>
+    </Modal>
+  );
+}
+
+
+// ──────────────────── Transfert vers un autre espace ─────────────────────────
+
+/**
+ * Déplace des builds vers un autre espace de travail.
+ *
+ * Le service exige le rôle Propriétaire des DEUX côtés : la liste ne propose
+ * donc que les espaces où l'on peut réellement déposer. Afficher les autres
+ * mènerait à un refus qu'on aurait pu éviter.
+ */
+function TransfertModal({
+  open, buildIds, onClose, onFait,
+}: {
+  open: boolean;
+  buildIds: string[];
+  onClose: () => void;
+  onFait: (m: string) => void;
+}) {
+  const { workspace: courant } = useSession();
+  const { data: espaces } = useResource<WorkspaceRef[]>(open ? '/api/workspaces' : null, [open]);
+  const [cible, setCible] = React.useState('');
+  const [projetCible, setProjetCible] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [erreur, setErreur] = React.useState<string | null>(null);
+
+  // Les projets d'accueil se lisent dans l'espace CIBLE. L'en-tête X-Workspace
+  // désigne l'espace courant : on le surcharge pour cet appel seulement, sans
+  // changer ce qu'affiche le reste de l'interface.
+  const { data: projets } = useResource<Project[]>(
+    cible ? '/api/projects' : null, [cible], undefined, cible || undefined);
+
+  React.useEffect(() => {
+    if (!open) return;
+    setCible('');
+    setProjetCible('');
+    setErreur(null);
+  }, [open]);
+
+  const candidats = (espaces ?? []).filter(
+    (w) => w.slug !== courant?.slug && w.role === 'OWNER');
+
+  async function soumettre() {
+    setBusy(true);
+    setErreur(null);
+    try {
+      const r = await post<{ transferes: number; cible: { name: string } }>(
+        '/api/builds/transfer',
+        {
+          buildIds,
+          targetWorkspaceId: cible,
+          targetProjectId: projetCible || null,
+        });
+      onFait(`${r.transferes} build(s) transféré(s) vers « ${r.cible.name} ».`);
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : 'Transfert impossible');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} wide
+      title={`Transférer ${buildIds.length} build${buildIds.length > 1 ? 's' : ''}`}
+      subtitle="Vers un autre espace de travail dont vous êtes propriétaire."
+      footer={
+        <>
+          <Button onClick={onClose}>Annuler</Button>
+          <Button variant="primary" loading={busy} disabled={!cible} onClick={soumettre}>
+            Transférer
+          </Button>
+        </>
+      }>
+      <div className="space-y-3.5">
+        {erreur && <Alert tone="danger">{erreur}</Alert>}
+
+        {candidats.length === 0 ? (
+          <Alert tone="warn" title="Aucun espace disponible">
+            Un transfert demande le rôle Propriétaire dans l’espace de départ <em>et</em> dans
+            celui d’arrivée. Sans cela, on pourrait verser les builds d’un client dans un espace
+            qu’on contrôle.
+          </Alert>
+        ) : (
+          <>
+            <Field label="Espace de destination" required>
+              <Select value={cible} onChange={(e) => { setCible(e.target.value); setProjetCible(''); }}>
+                <option value="">— choisir —</option>
+                {candidats.map((w) => <option key={w.id} value={w.slug}>{w.name}</option>)}
+              </Select>
+            </Field>
+
+            {cible && (
+              <Field label="Rattacher à un projet de cet espace"
+                hint="Facultatif. Sans rattachement, l’historique et les liens de téléchargement restent intacts, mais les builds perdent le lien vers des réglages et une clé.">
+                <Select value={projetCible} onChange={(e) => setProjetCible(e.target.value)}>
+                  <option value="">— aucun projet —</option>
+                  {(projets ?? []).map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.repoName})</option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+
+            <div className="rounded-lg px-3.5 py-3 text-[12.5px] leading-relaxed"
+              style={{ background: 'var(--surface-sunken)', color: 'var(--ink-2)' }}>
+              <p className="mb-1 font-semibold" style={{ color: 'var(--ink)' }}>Ce qui se passe</p>
+              Les artefacts ne bougent pas du disque — ils sont rangés par identifiant de build,
+              pas par espace : <strong>les liens de téléchargement déjà distribués continuent de
+              fonctionner</strong>. Un build encore en file ou en cours est refusé, parce que le
+              worker le réclame avec le plafond de son espace. L’opération est inscrite au journal
+              des deux espaces.
+            </div>
+          </>
+        )}
+      </div>
     </Modal>
   );
 }

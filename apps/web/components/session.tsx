@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { get, post, currentWorkspace, setCurrentWorkspace } from '@/lib/api';
+import { api, get, post, currentWorkspace, setCurrentWorkspace } from '@/lib/api';
 import type { User, WorkspaceRef, Role } from '@/lib/types';
 
 /**
@@ -101,6 +101,8 @@ export function useResource<T>(
   path: string | null,
   deps: React.DependencyList = [],
   intervalMs?: number,
+  /** Espace visé pour cet appel, au lieu de l'espace courant (transfert). */
+  workspace?: string,
 ) {
   const [data, setData] = React.useState<T | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -110,7 +112,7 @@ export function useResource<T>(
     if (!path) return;
     if (!silent) setLoading(true);
     try {
-      setData(await get<T>(path));
+      setData(await api<T>(path, workspace ? { workspace } : {}));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inattendue');
@@ -118,7 +120,7 @@ export function useResource<T>(
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path]);
+  }, [path, workspace]);
 
   React.useEffect(() => { reload(); /* eslint-disable-next-line */ }, [path, ...deps]);
 

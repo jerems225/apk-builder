@@ -41,16 +41,25 @@ interface Options extends Omit<RequestInit, 'body'> {
   body?: unknown;
   /** Corps déjà construit (dépôt de fichier) : on ne fixe alors aucun Content-Type. */
   raw?: BodyInit;
+  /**
+   * Espace visé pour cet appel seulement, au lieu de l'espace courant.
+   *
+   * Sert au transfert, qui doit lire les projets de l'espace de destination
+   * sans changer celui qu'affiche l'interface. Une surcharge explicite vaut
+   * mieux qu'un paramètre d'URL : l'en-tête reste l'unique canal, il n'y a donc
+   * qu'une règle de priorité à connaître.
+   */
+  workspace?: string;
 }
 
 export async function api<T>(path: string, options: Options = {}): Promise<T> {
-  const { body, raw, headers, ...rest } = options;
+  const { body, raw, headers, workspace, ...rest } = options;
 
   const finalHeaders: Record<string, string> = {
     Accept: 'application/json',
     ...(headers as Record<string, string>),
   };
-  const ws = currentWorkspace();
+  const ws = workspace || currentWorkspace();
   if (ws) finalHeaders['X-Workspace'] = ws;
   // Laisser le navigateur composer lui-même le Content-Type d'un multipart :
   // il doit y inclure la frontière, qu'on ne peut pas deviner ici.

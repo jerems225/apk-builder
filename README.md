@@ -332,6 +332,29 @@ disposant de l'URL peut télécharger l'application, sans limite de durée.
 
 ---
 
+## Transférer des builds ou un projet
+
+Un client change d'espace, une équipe se scinde, un projet part chez un
+prestataire : **Builds → cocher → Transférer**, ou **Projets → Transférer** pour
+emmener le projet avec sa clé et son historique.
+
+Le rôle **Propriétaire est exigé des deux côtés**. L'exiger d'un seul
+permettrait soit de verser les builds d'un client dans un espace qu'on contrôle,
+soit d'aspirer ceux d'un espace voisin.
+
+Ce qui suit, ce qui ne suit pas :
+
+| | |
+|---|---|
+| **La clé de signature** | Suit le projet — le magasin est rangé par identifiant de projet, qui ne change pas. Les mises à jour restent installables |
+| **Les liens de téléchargement** | Continuent de fonctionner — les artefacts sont rangés par identifiant de build, pas par espace |
+| **La connexion Git** | **Ne suit pas.** Elle appartient à l'espace d'origine ; la recopier dupliquerait un jeton d'accès. Rattachez-en une avant le prochain build d'un dépôt privé |
+| **Les builds en file ou en cours** | Refusés. Le worker les réclame avec le plafond de leur espace |
+
+Des builds transférés sans projet d'accueil arrivent détachés : historique et
+téléchargements intacts, mais plus de lien vers des réglages. L'opération est
+inscrite au journal des **deux** espaces.
+
 ## Exploitation
 
 ```bash
@@ -376,6 +399,10 @@ stocké — il n'est lisible qu'à sa création.
 - [`docs/demarche-signature-par-projet.md`](docs/demarche-signature-par-projet.md)
   — la démarche complète de mise en place de la signature et de réduction de
   taille, étape par étape, avec les retours arrière.
+- [`docs/migration-serveur.md`](docs/migration-serveur.md) — déplacer une
+  installation vers une autre machine : ce qui doit voyager, dans quel ordre,
+  comment réduire l'interruption à quelques minutes, et les pièges rencontrés
+  en conditions réelles.
 
 La documentation d'API interactive est servie sur `/api/docs`, derrière un
 formulaire de connexion : elle décrit précisément la surface d'attaque du

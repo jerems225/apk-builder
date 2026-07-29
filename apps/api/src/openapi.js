@@ -363,6 +363,91 @@ const spec = {
         responses: { 200: jsonRes('Clé retirée', ref('Project')) },
       },
     },
+    '/api/builds/transfer': {
+      parameters: [{ $ref: '#/components/parameters/Workspace' }],
+      post: {
+        tags: ['Builds'], summary: 'Transférer des builds vers un autre espace (rôle Propriétaire)',
+        description: [
+          'Le rôle **Propriétaire est exigé dans les deux espaces**. L’exiger d’un seul côté',
+          'permettrait soit de verser les builds d’un client dans un espace qu’on contrôle,',
+          'soit d’aspirer ceux d’un espace voisin.',
+          '',
+          '**Les artefacts ne bougent pas du disque** : ils sont rangés par identifiant de',
+          'build, pas par espace. Les liens `/dl` déjà distribués continuent de fonctionner.',
+          '',
+          'Un build en file ou en cours est refusé : le worker le réclame avec le plafond de',
+          'son espace. Sans `targetProjectId`, les builds arrivent détachés de tout projet —',
+          'licite, mais ils perdent le lien vers des réglages et une clé. L’opération est',
+          'inscrite au journal des deux espaces.',
+        ].join('\n'),
+        requestBody: jsonBody({
+          type: 'object', required: ['buildIds', 'targetWorkspaceId'],
+          properties: {
+            buildIds: { type: 'array', items: { type: 'string' }, maxItems: 500 },
+            targetWorkspaceId: { type: 'string', description: 'Identifiant ou slug de l’espace cible' },
+            targetProjectId: {
+              type: 'string', nullable: true,
+              description: 'Projet d’accueil, qui doit appartenir à l’espace cible',
+            },
+          },
+        }),
+        responses: {
+          200: jsonRes('Builds déplacés', {
+            type: 'object',
+            properties: {
+              transferes: { type: 'integer' },
+              cible: { type: 'object' },
+              depots: { type: 'array', items: { type: 'string' } },
+            },
+          }),
+          403: jsonRes('Rôle Propriétaire manquant dans l’un des deux espaces', ref('Error')),
+          409: jsonRes('Builds encore en file ou en cours', ref('Error')),
+        },
+      },
+    },
+    '/api/projects/{id}/transfer': {
+      parameters: [
+        { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        { $ref: '#/components/parameters/Workspace' },
+      ],
+      post: {
+        tags: ['Projets'], summary: 'Transférer un projet vers un autre espace (rôle Propriétaire)',
+        description: [
+          '**La clé de signature suit le projet** sans manipulation de fichier : le magasin est',
+          'rangé par identifiant de projet, qui ne change pas. Les mises à jour restent donc',
+          'installables par-dessus les versions déjà distribuées.',
+          '',
+          '**La connexion Git ne suit pas** : elle appartient à l’espace d’origine, et la',
+          'recopier reviendrait à dupliquer un jeton d’accès dans un espace qui n’y a pas',
+          'droit. Le projet arrive en accès public — un dépôt privé cessera d’être clonable',
+          'tant qu’une connexion de l’espace cible ne lui est pas rattachée.',
+          '',
+          '`avecBuilds: false` laisse l’historique dans l’espace d’origine, mais **détache**',
+          'les builds du projet : sinon ils désigneraient un projet devenu étranger.',
+        ].join('\n'),
+        requestBody: jsonBody({
+          type: 'object', required: ['targetWorkspaceId'],
+          properties: {
+            targetWorkspaceId: { type: 'string' },
+            avecBuilds: { type: 'boolean', default: true },
+          },
+        }),
+        responses: {
+          200: jsonRes('Projet déplacé, avec la liste des avertissements', {
+            type: 'object',
+            properties: {
+              projet: { type: 'object' },
+              cible: { type: 'object' },
+              buildsDeplaces: { type: 'integer' },
+              connexionPerdue: { type: 'string', nullable: true },
+              cleConservee: { type: 'boolean' },
+              avertissements: { type: 'array', items: { type: 'string' } },
+            },
+          }),
+          409: jsonRes('Dépôt déjà suivi dans l’espace cible, ou builds en cours', ref('Error')),
+        },
+      },
+    },
     '/api/projects/{id}/keystore/generate': {
       parameters: [
         { name: 'id', in: 'path', required: true, schema: { type: 'string' } },

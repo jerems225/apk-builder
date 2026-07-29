@@ -9,6 +9,7 @@ const audit = require('../lib/audit');
 const roles = require('../lib/roles');
 const passwords = require('../lib/password');
 const keystore = require('../lib/keystore');
+const transfer = require('../services/transfer');
 const config = require('../config');
 const {
   asyncRoute, parseBody, notFound, conflict, badRequest, forbidden, unauthorized,
@@ -256,6 +257,38 @@ router.post('/:id/keystore', auth.requireRole('MAINTAINER'), upload.single('keys
         'clé différente : aucun contournement n’existe.',
     });
   }));
+
+const transferSchema = z.object({
+  targetWorkspaceId: z.string().min(1, 'Espace cible obligatoire'),
+  avecBuilds: z.boolean().default(true),
+});
+
+/**
+ * Déplace un projet vers un autre espace, avec ou sans son historique.
+ *
+ * La clé de signature suit le projet sans manipulation de fichier : le magasin
+ * est rangé par identifiant de projet, qui ne change pas. La connexion Git, en
+ * revanche, ne suit pas — la recopier reviendrait à dupliquer un jeton d'accès
+ * dans un espace qui n'y a pas droit.
+ */
+router.post('/:id/transfer', auth.requireRole('OWNER'), asyncRoute(async (req, res) => {
+  const body = parseBody(transferSchema, req.body);
+  const r = await transfer.transfererProjet({
+    user: req.user,
+    source: req.workspace,
+    projectId: req.params.id,
+    cibleId: body.targetWorkspaceId,
+    avecBuilds: body.avecBuilds,
+  });
+
+  audit.record(req, 'project.transfer.out', r.projet.id,
+    { repoName: r.projet.repoName, vers: r.cible.slug, builds: r.buildsDeplaces });
+  audit.record({ workspace: { id: r.cible.id }, user: req.user, ip: req.ip },
+    'project.transfer.in', r.projet.id,
+    { repoName: r.projet.repoName, depuis: req.workspace.slug, builds: r.buildsDeplaces });
+
+  res.json({ ok: true, ...r });
+}));
 
 const generateSchema = z.object({
   alias: z.string().trim().min(1, 'L’alias est obligatoire').max(64),

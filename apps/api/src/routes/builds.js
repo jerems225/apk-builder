@@ -6,6 +6,7 @@ const auth = require('../lib/auth');
 const audit = require('../lib/audit');
 const worker = require('../worker');
 const buildsService = require('../services/builds');
+const transfer = require('../services/transfer');
 const config = require('../config');
 const { asyncRoute, parseBody, notFound, conflict, badRequest } = require('../lib/http');
 
@@ -221,6 +222,49 @@ router.delete('/:id', auth.requireRole('MAINTAINER'), asyncRoute(async (req, res
   await buildsService.remove(build.id);
   audit.record(req, 'build.delete', build.id, { repoName: build.repoName });
   res.json({ ok: true });
+}));
+
+const transferSchema = z.object({
+  buildIds: z.array(z.string().uuid()).min(1, 'Sélectionnez au moins un build'),
+  targetWorkspaceId: z.string().min(1, 'Espace cible obligatoire'),
+  targetProjectId: z.string().uuid().nullable().optional(),
+});
+
+/**
+ * Déplace des builds vers un autre espace de travail.
+ *
+ * Rôle propriétaire **dans les deux espaces** : l'exiger d'un seul côté
+ * permettrait soit de verser les builds d'un client dans un espace qu'on
+ * contrôle, soit d'aspirer ceux d'un espace voisin.
+ */
+router.post('/transfer', auth.requireRole('OWNER'), asyncRoute(async (req, res) => {
+  const body = parseBody(transferSchema, req.body);
+  const r = await transfer.transfererBuilds({
+    user: req.user,
+    source: req.workspace,
+    cibleId: body.targetWorkspaceId,
+    buildIds: body.buildIds,
+    targetProjectId: body.targetProjectId || null,
+  });
+
+  // Tracé des deux côtés : sans la trace côté cible, des builds apparaîtraient
+  // dans un espace sans que rien n'explique d'où ils viennent.
+  audit.record(req, 'build.transfer.out', null,
+    { vers: r.cible.slug, nombre: r.transferes, depots: r.depots });
+  // Objet minimal plutôt qu'une copie de la requête : audit.record ne lit que
+  // ces trois champs, et étaler un objet Express recopie mal ses accesseurs.
+  audit.record({ workspace: { id: r.cible.id }, user: req.user, ip: req.ip },
+    'build.transfer.in', null,
+    { depuis: req.workspace.slug, nombre: r.transferes, depots: r.depots });
+
+  res.json({
+    ok: true,
+    ...r,
+    avertissement: r.projet
+      ? null
+      : 'Ces builds sont arrivés sans projet d’accueil : leur historique et leurs liens de ' +
+        'téléchargement restent intacts, mais ils ne sont plus rattachés à des réglages.',
+  });
 }));
 
 /** Ménage groupé des échecs. Demandé en permanence, autant l'outiller. */
