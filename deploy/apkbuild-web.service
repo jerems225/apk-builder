@@ -15,7 +15,11 @@ Environment=PORT=3000
 # L'interface n'écoute que sur la boucle locale : Apache est le seul point
 # d'entrée public, et lui seul termine TLS.
 Environment=HOSTNAME=127.0.0.1
-ExecStart=/usr/bin/npx next start -p 3000 -H 127.0.0.1
+# Chemin explicite plutôt que `npx next` : npx qui ne trouve pas le binaire
+# tenterait de le TÉLÉCHARGER au démarrage du service. Ici, un binaire absent
+# fait échouer le service immédiatement, ce qui est le comportement voulu.
+# Le binaire est remonté à la racine du monorepo par npm workspaces.
+ExecStart=/usr/bin/node /srv/apkbuild/app/node_modules/next/dist/bin/next start -p 3000 -H 127.0.0.1
 
 Restart=always
 RestartSec=5

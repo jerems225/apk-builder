@@ -202,9 +202,35 @@ if [ "$SKIP_VHOST" -eq 0 ]; then
     sed "s|__SERVER_NAME__|$SERVER_NAME|g" \
       "$SRC_DIR/deploy/apache-apkbuild.conf" > "/etc/apache2/sites-available/${SERVER_NAME}.conf"
     a2ensite -q "${SERVER_NAME}.conf" >/dev/null
+
+    # Le vhost TLS, lui, a été produit par certbot en recopiant l'ancien vhost
+    # :80 — il proxifie donc encore TOUT vers l'API. Ne réécrire que le :80
+    # laisserait l'interface inaccessible en HTTPS, c'est-à-dire en pratique
+    # inaccessible. On le reconstruit à partir du même gabarit, en conservant
+    # les directives déposées par certbot.
+    SSL_CONF="/etc/apache2/sites-available/${SERVER_NAME}-le-ssl.conf"
+    if [ -f "$SSL_CONF" ]; then
+      SSL_LINES="$(grep -E '^[[:space:]]*(SSLCertificateFile|SSLCertificateKeyFile|SSLCertificateChainFile|Include[[:space:]]+/etc/letsencrypt)' "$SSL_CONF" || true)"
+      if [ -n "$SSL_LINES" ]; then
+        cp -a "$SSL_CONF" "${SSL_CONF}.bak-$(date +%Y%m%d-%H%M%S)"
+        {
+          echo "<IfModule mod_ssl.c>"
+          sed "s|__SERVER_NAME__|$SERVER_NAME|g" "$SRC_DIR/deploy/apache-apkbuild.conf" \
+            | sed -e 's|<VirtualHost \*:80>|<VirtualHost *:443>|' -e '/^<\/VirtualHost>/d'
+          echo "$SSL_LINES"
+          echo "</VirtualHost>"
+          echo "</IfModule>"
+        } > "$SSL_CONF"
+        echo "  vhost TLS reconstruit (sauvegarde : ${SSL_CONF}.bak-*)"
+      else
+        echo "  ATTENTION : $SSL_CONF ne contient aucune directive certbot ;"
+        echo "  laissé intact. Vérifiez qu'il route bien /api vers 9100."
+      fi
+    fi
+
     apache2ctl configtest && systemctl reload apache2
-    echo "  vhost actif en HTTP"
-    echo "  TLS : sudo certbot --apache -d $SERVER_NAME"
+    echo "  vhost actif"
+    [ -f "$SSL_CONF" ] || echo "  TLS : sudo certbot --apache -d $SERVER_NAME"
 
   elif systemctl is-active --quiet nginx; then
     step "Vhost nginx ($SERVER_NAME)"
