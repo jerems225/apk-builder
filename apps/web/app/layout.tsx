@@ -2,9 +2,10 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Builder APK',
+  title: 'Buildex',
   description: 'Plateforme de compilation et de distribution d’APK React Native',
   robots: { index: false, follow: false },
+  // Next sert automatiquement app/icon.svg comme favicon : rien à déclarer ici.
 };
 
 export const viewport: Viewport = {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from './session';
 import { cx, Badge } from './ui';
+import { Logo } from './ui/logo';
 import { initials } from '@/lib/format';
 import {
   IconDashboard, IconBuilds, IconProjects, IconLink, IconTeam, IconSettings,
@@ -152,6 +153,14 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col gap-1 px-3 py-4">
+      {/* La marque en tête, l'espace de travail juste dessous : on identifie
+          d'abord le produit, puis le contexte dans lequel on travaille. */}
+      <Link href="/tableau-de-bord" onClick={onNavigate}
+        className="mb-3 flex items-center gap-2.5 px-2.5">
+        <Logo size={28} />
+        <span className="text-[16px] font-semibold tracking-[-.01em]">Buildex</span>
+      </Link>
+
       <div className="mb-2 px-1">
         <WorkspaceSwitcher />
       </div>

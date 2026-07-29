@@ -4,7 +4,7 @@ import React, { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { post, setCurrentWorkspace } from '@/lib/api';
 import { Button, Field, Input, Alert } from '@/components/ui';
-import { IconBuilds } from '@/components/ui/icons';
+import { Logo } from '@/components/ui/logo';
 import type { User } from '@/lib/types';
 
 function LoginForm() {
@@ -36,11 +36,8 @@ function LoginForm() {
   return (
     <form onSubmit={submit} className="card rise w-full max-w-[380px] p-7">
       <div className="mb-6">
-        <span className="mb-4 grid h-10 w-10 place-items-center rounded-xl"
-          style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}>
-          <IconBuilds size={20} />
-        </span>
-        <h1 className="text-[19px] font-semibold tracking-[-.01em]">Builder APK</h1>
+        <Logo size={44} className="mb-3.5" />
+        <h1 className="text-[19px] font-semibold tracking-[-.01em]">Buildex</h1>
         <p className="mt-1 text-[13px]" style={{ color: 'var(--ink-3)' }}>
           Compilation et distribution d’applications Android.
         </p>
