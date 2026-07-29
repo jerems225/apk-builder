@@ -2,6 +2,7 @@
 
 import { SessionProvider } from '@/components/session';
 import { AppShell } from '@/components/shell';
+import { PWA } from '@/components/pwa';
 
 // Groupe de routes (app) : tout ce qui est ici est derrière la session et
 // partage la coquille. Les parenthèses ne rentrent pas dans l'URL — /builds
@@ -10,6 +11,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <AppShell>{children}</AppShell>
+      <PWA />
     </SessionProvider>
   );
 }

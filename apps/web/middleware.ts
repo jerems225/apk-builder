@@ -2,7 +2,20 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 const COOKIE = process.env.NEXT_PUBLIC_COOKIE_NAME || 'apkb_session';
 
-const PUBLIC = ['/connexion', '/_next', '/favicon', '/api', '/dl', '/latest', '/healthz'];
+const PUBLIC = ['/connexion', '/_next', '/api', '/dl', '/latest', '/healthz'];
+
+/**
+ * Une ressource, jamais une page.
+ *
+ * Sans ce test, la garde renvoyait un 307 vers /connexion pour le manifeste,
+ * le service worker et les icônes. Un service worker qui reçoit une
+ * redirection ne s'enregistre pas : la PWA ne s'installait tout simplement
+ * pas, sans le moindre message.
+ *
+ * Le critère est l'extension dans le dernier segment. Aucune page de cette
+ * application n'en porte — les URL sont des mots français sans point.
+ */
+const estRessource = (chemin: string) => /\.[a-z0-9]+$/i.test(chemin);
 
 /**
  * Origine publique réelle de la requête.
@@ -38,6 +51,7 @@ function origine(req: NextRequest): string {
  */
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  if (estRessource(pathname)) return NextResponse.next();
   if (PUBLIC.some((p) => pathname.startsWith(p))) return NextResponse.next();
 
   if (!req.cookies.get(COOKIE)) {

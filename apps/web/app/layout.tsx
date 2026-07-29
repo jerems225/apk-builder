@@ -13,6 +13,9 @@ export const viewport: Viewport = {
     { media: '(prefers-color-scheme: light)', color: '#f4f6f9' },
     { media: '(prefers-color-scheme: dark)', color: '#0a0e17' },
   ],
+  // Installée en application, l'interface occupe l'encoche des téléphones
+  // récents : sans cela, la barre latérale passe dessous.
+  viewportFit: 'cover',
 };
 
 /**
