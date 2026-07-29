@@ -44,6 +44,11 @@ const paths = {
 
 // Prisma lit DATABASE_URL et rien d'autre. On la dérive du ROOT quand elle
 // n'est pas fournie, pour qu'un déploiement standard n'ait rien à régler.
+//
+// Attention : la CLI Prisma (`prisma db push`, `prisma generate`) n'exécute pas
+// ce fichier. Les commandes npm passent donc par src/scripts/prisma.js, qui le
+// charge d'abord. Un appel direct à `npx prisma …` échouerait sur
+// « Environment variable not found: DATABASE_URL ».
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = `file:${path.join(paths.data, 'apkbuild.db')}`;
 }

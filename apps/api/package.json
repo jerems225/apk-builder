@@ -8,15 +8,12 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate deploy",
-    "db:studio": "prisma studio",
+    "db:generate": "node src/scripts/prisma.js generate",
+    "db:push": "node src/scripts/prisma.js db push",
+    "db:migrate": "node src/scripts/prisma.js migrate deploy",
+    "db:studio": "node src/scripts/prisma.js studio",
     "seed": "node src/scripts/seed.js",
     "migrate:legacy": "node src/scripts/migrate-legacy.js"
-  },
-  "prisma": {
-    "seed": "node src/scripts/seed.js"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",
