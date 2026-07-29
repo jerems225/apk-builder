@@ -363,6 +363,102 @@ const spec = {
         responses: { 200: jsonRes('Clé retirée', ref('Project')) },
       },
     },
+    '/api/projects/{id}/keystore/generate': {
+      parameters: [
+        { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        { $ref: '#/components/parameters/Workspace' },
+      ],
+      post: {
+        tags: ['Projets'], summary: 'Générer la clé côté serveur (rôle Mainteneur)',
+        description: [
+          'Crée un magasin **PKCS12**, tire le mot de passe au sort, relit le fichier produit',
+          'pour en extraire l’empreinte réelle, puis le range en 0600 dans un répertoire',
+          'qu’aucune route ne dessert.',
+          '',
+          'Pourquoi côté serveur : demander à chacun d’installer un JDK et de composer une',
+          'ligne de `keytool` correcte produit des clés RSA 2048 valides un an et des mots de',
+          'passe choisis à la main.',
+          '',
+          '⚠ Le magasin et son mot de passe ne sont retournés **qu’ici**. Une clé qui n’existe',
+          'que sur ce serveur meurt avec lui, et l’application qu’elle signe ne peut alors plus',
+          'jamais être mise à jour. L’interface refuse de fermer l’écran avant téléchargement.',
+          '',
+          'Remplacer une clé existante exige le rôle Propriétaire : l’opération oblige tous les',
+          'utilisateurs à réinstaller l’application.',
+        ].join('\n'),
+        requestBody: jsonBody({
+          type: 'object', required: ['alias', 'commonName'],
+          properties: {
+            alias: { type: 'string', example: 'app-livreur' },
+            commonName: { type: 'string', description: 'CN du certificat', example: 'Application livreur' },
+            organisation: { type: 'string' },
+            ville: { type: 'string', example: 'Abidjan' },
+            pays: { type: 'string', minLength: 2, maxLength: 2, example: 'CI' },
+            validityDays: {
+              type: 'integer', default: 10950,
+              description: '≈ 30 ans. Une clé qui expire condamne l’application à changer d’identité.',
+            },
+            keySize: { type: 'integer', enum: [2048, 3072, 4096], default: 4096 },
+          },
+        }),
+        responses: {
+          201: jsonRes('Clé créée — mot de passe et magasin lisibles une seule fois', {
+            allOf: [ref('Project'), {
+              type: 'object',
+              properties: {
+                motDePasse: { type: 'string' },
+                magasin: {
+                  type: 'object',
+                  properties: {
+                    nom: { type: 'string' },
+                    contenuBase64: { type: 'string', description: 'Fichier .jks encodé en base64' },
+                  },
+                },
+              },
+            }],
+          }),
+          400: jsonRes('keytool absent, alias invalide ou paramètres refusés', ref('Error')),
+          403: jsonRes('Remplacement d’une clé existante : rôle Propriétaire requis', ref('Error')),
+        },
+      },
+    },
+    '/api/projects/{id}/keystore/export': {
+      parameters: [
+        { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        { $ref: '#/components/parameters/Workspace' },
+      ],
+      post: {
+        tags: ['Projets'], summary: 'Exporter le magasin pour sauvegarde (rôle Propriétaire)',
+        description: [
+          'Pendant indispensable de la génération côté serveur : sans lui, une clé générée ici',
+          'n’existerait qu’ici.',
+          '',
+          'Trois garde-fous, parce que la réponse contient une clé privée : rôle Propriétaire,',
+          '**ré-authentification** par le mot de passe du compte — c’est ce qui distingue une',
+          'demande légitime d’une session volée —, et inscription au journal d’audit. Limité à',
+          'dix tentatives par heure.',
+        ].join('\n'),
+        requestBody: jsonBody({
+          type: 'object', required: ['password'],
+          properties: { password: { type: 'string', description: 'Mot de passe du compte appelant' } },
+        }),
+        responses: {
+          200: jsonRes('Magasin et mot de passe', {
+            type: 'object',
+            properties: {
+              nom: { type: 'string' },
+              contenuBase64: { type: 'string' },
+              alias: { type: 'string' },
+              motDePasse: { type: 'string' },
+              empreinte: { type: 'string' },
+            },
+          }),
+          401: jsonRes('Mot de passe du compte incorrect', ref('Error')),
+          403: ERRORS[403],
+          429: jsonRes('Trop de tentatives', ref('Error')),
+        },
+      },
+    },
     '/api/builds': {
       parameters: [{ $ref: '#/components/parameters/Workspace' }],
       get: {

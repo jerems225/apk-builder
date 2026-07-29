@@ -33,6 +33,8 @@ export interface Workspace {
   webhookUrl: string;
   webhookSecretHint: string | null;
   hasWebhookSecret: boolean;
+  /** Faux si keytool n'est pas installé : la génération de clé est alors masquée. */
+  keytoolDisponible: boolean;
   /** Renvoyé uniquement à la création ou après régénération. */
   webhookSecret?: string;
   createdAt: string;
@@ -109,6 +111,23 @@ export interface Build {
   downloadUrl: string | null;
   signatureMatchesProject?: boolean | null;
   isActive?: boolean;
+}
+
+/** Retourné une seule fois, à la génération d'une clé côté serveur. */
+export interface KeystoreGenerated extends Project {
+  validUntil: string | null;
+  motDePasse: string;
+  magasin: { nom: string; contenuBase64: string };
+  avertissement: string;
+}
+
+/** Sauvegarde d'un magasin existant, après ré-authentification. */
+export interface KeystoreExport {
+  nom: string;
+  contenuBase64: string;
+  alias: string;
+  motDePasse: string;
+  empreinte: string;
 }
 
 export interface Member {

@@ -1,13 +1,18 @@
 'use strict';
 const express = require('express');
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const { z } = require('zod');
 const prisma = require('../lib/prisma');
 const auth = require('../lib/auth');
 const audit = require('../lib/audit');
+const roles = require('../lib/roles');
+const passwords = require('../lib/password');
 const keystore = require('../lib/keystore');
 const config = require('../config');
-const { asyncRoute, parseBody, notFound, conflict, badRequest } = require('../lib/http');
+const {
+  asyncRoute, parseBody, notFound, conflict, badRequest, forbidden, unauthorized,
+} = require('../lib/http');
 
 const router = express.Router();
 router.use(auth.requireAuth, auth.resolveWorkspace);
@@ -249,6 +254,127 @@ router.post('/:id/keystore', auth.requireRole('MAINTAINER'), upload.single('keys
         'Changer la clé d’une application déjà distribuée oblige les utilisateurs à la ' +
         'désinstaller puis la réinstaller. Android refuse une mise à jour signée par une ' +
         'clé différente : aucun contournement n’existe.',
+    });
+  }));
+
+const generateSchema = z.object({
+  alias: z.string().trim().min(1, 'L’alias est obligatoire').max(64),
+  commonName: z.string().trim().min(1, 'Le nom de l’application est obligatoire').max(64),
+  organisation: z.string().trim().max(64).optional(),
+  ville: z.string().trim().max(64).optional(),
+  pays: z.string().trim().length(2, 'Code pays à deux lettres').optional(),
+  validityDays: z.number().int().min(365).max(36500).default(10950),
+  keySize: z.union([z.literal(2048), z.literal(3072), z.literal(4096)]).default(4096),
+});
+
+/**
+ * Génère la clé côté serveur.
+ *
+ * Le mot de passe et le magasin ne sont retournés QU'ICI. Le magasin reste
+ * ensuite exportable par un propriétaire, mais le mot de passe n'est plus
+ * jamais réaffiché en dehors de cet export : c'est ce qui pousse à sauvegarder
+ * tout de suite.
+ */
+router.post('/:id/keystore/generate', auth.requireRole('MAINTAINER'),
+  asyncRoute(async (req, res) => {
+    const project = await prisma.project.findFirst({
+      where: { id: req.params.id, workspaceId: req.workspace.id },
+    });
+    if (!project) throw notFound('Projet introuvable dans cet espace.');
+
+    // Remplacer une clé existante est une décision lourde : elle appartient au
+    // propriétaire, pas au mainteneur qui pose la première.
+    if (project.keystoreAlias && !roles.atLeast(req.role, 'OWNER')) {
+      throw forbidden(
+        'Ce projet a déjà une clé de release. Son remplacement oblige tous les utilisateurs ' +
+        'à réinstaller l’application : seul un propriétaire peut le décider.');
+    }
+
+    const body = parseBody(generateSchema, req.body);
+    const key = keystore.generate(project.id, body);
+
+    const updated = await prisma.project.update({
+      where: { id: project.id },
+      data: {
+        keystoreFile: keystore.fileName(project.id),
+        keystoreAlias: key.alias,
+        keystorePassEnc: key.passEnc,
+        keystoreFingerprint: key.fingerprint,
+        keystoreUploadedAt: new Date(),
+      },
+      include: { provider: true },
+    });
+
+    // L'empreinte n'est pas un secret : c'est précisément la trace qui permet
+    // de dater un changement de clé. Le mot de passe, lui, n'y figure pas.
+    audit.record(req, 'project.keystore.generate', project.id, {
+      repoName: project.repoName, alias: key.alias, fingerprint: key.fingerprint,
+      dn: key.dn, keySize: key.keySize, validityDays: key.validityDays,
+    });
+
+    res.status(201).json({
+      ...publicProject(updated),
+      validUntil: key.validUntil,
+      // Affichés une seule fois. La base ne garde le mot de passe que chiffré,
+      // et l'interface ne le réaffiche jamais hors d'un export authentifié.
+      motDePasse: key.password,
+      magasin: {
+        nom: `${project.repoName.split('/').pop()}-${key.alias}.jks`,
+        contenuBase64: keystore.exportFile(updated).content.toString('base64'),
+      },
+      avertissement:
+        'Cette clé n’existe que sur ce serveur. Téléchargez le magasin ET notez le mot de ' +
+        'passe maintenant, hors de cette machine : aucune autorité ne régénère une clé ' +
+        'Android, et l’application ne pourrait plus jamais être mise à jour.',
+    });
+  }));
+
+// Une poignée d'essais par heure : cette route délivre une clé privée, une
+// session volée ne doit pas pouvoir deviner le mot de passe du compte.
+const exportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de tentatives d’export. Réessayez dans une heure.' },
+});
+
+const exportSchema = z.object({
+  password: z.string().min(1, 'Votre mot de passe est requis'),
+});
+
+/**
+ * Export du magasin, pour sauvegarde hors du serveur.
+ *
+ * Pendant indispensable de la génération côté serveur : sans lui, une clé
+ * générée ici n'existerait qu'ici. Trois garde-fous, parce qu'on distribue une
+ * clé privée : rôle propriétaire, ré-authentification, et journal d'audit.
+ * La ré-authentification est ce qui distingue cette route d'une session volée.
+ */
+router.post('/:id/keystore/export', auth.requireRole('OWNER'), exportLimiter,
+  asyncRoute(async (req, res) => {
+    const body = parseBody(exportSchema, req.body);
+    if (!(await passwords.verify(body.password, req.user.passwordHash))) {
+      console.warn(`[api] export de clé refusé pour ${req.user.email} — mot de passe incorrect`);
+      throw unauthorized('Mot de passe incorrect.');
+    }
+
+    const project = await prisma.project.findFirst({
+      where: { id: req.params.id, workspaceId: req.workspace.id },
+    });
+    if (!project) throw notFound('Projet introuvable dans cet espace.');
+
+    const data = keystore.exportFile(project);
+    audit.record(req, 'project.keystore.export', project.id, {
+      repoName: project.repoName, fingerprint: data.fingerprint,
+    });
+
+    res.json({
+      nom: `${project.repoName.split('/').pop()}-${data.alias}.jks`,
+      contenuBase64: data.content.toString('base64'),
+      alias: data.alias,
+      motDePasse: data.password,
+      empreinte: data.fingerprint,
     });
   }));
 

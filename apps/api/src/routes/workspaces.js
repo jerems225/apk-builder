@@ -3,6 +3,7 @@ const express = require('express');
 const { z } = require('zod');
 const prisma = require('../lib/prisma');
 const secrets = require('../lib/crypto');
+const keystore = require('../lib/keystore');
 const auth = require('../lib/auth');
 const audit = require('../lib/audit');
 const config = require('../config');
@@ -36,6 +37,9 @@ function publicWorkspace(ws, role) {
     webhookUrl: `${config.publicUrl}/api/webhooks/${ws.slug}`,
     webhookSecretHint: ws.webhookSecretHint,
     hasWebhookSecret: !!ws.webhookSecretEnc,
+    // L'interface n'offre la génération de clé que si keytool est installé :
+    // mieux vaut ne pas proposer un bouton qui échouera.
+    keytoolDisponible: keystore.available(),
     createdAt: ws.createdAt,
   };
 }

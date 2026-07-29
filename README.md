@@ -202,6 +202,43 @@ L'utilisateur doit désinstaller, donc perdre ses données locales.
 Une clé **par projet**, et non une clé unique : les projets sont livrés à des
 clients distincts, chacun doit garder une identité de publication séparée.
 
+### La créer depuis l'interface
+
+**Projets → Créer une clé.** Un formulaire — alias, nom de l'application,
+organisation, ville, pays, validité, taille — et le serveur s'occupe du reste.
+
+C'est la voie recommandée. Demander à chacun d'installer un JDK et de composer
+une ligne de `keytool` correcte produit en pratique des clés RSA 2048 valides un
+an, des alias oubliés et des mots de passe choisis à la main. Ici les paramètres
+sont ceux qu'on veut, à chaque fois :
+
+- **PKCS12 et non JKS** — JKS est hérité, `keytool` avertit à chaque usage.
+- **RSA 4096, 30 ans** par défaut — une clé qui expire condamne l'application à
+  changer d'identité.
+- **Mot de passe tiré au sort sur 32 octets** — personne ne le choisit, donc
+  personne ne le réutilise ailleurs. En PKCS12, magasin et clé le partagent : le
+  format ne sait pas en gérer deux distincts.
+- Le fichier produit est **relu** pour en extraire l'empreinte réelle, puis rangé
+  en `0600` dans un répertoire qu'aucune route ne dessert.
+
+L'écran suivant affiche le mot de passe et propose le téléchargement du magasin
+et d'un pense-bête. **Il refuse de se fermer avant que ce soit fait** : une clé
+qui n'existe que sur ce serveur meurt avec lui.
+
+Un propriétaire peut re-télécharger le magasin plus tard — **Gérer la clé →
+Sauvegarder** — en ressaisissant son propre mot de passe. Cette
+ré-authentification est ce qui distingue une demande légitime d'une session
+volée, et chaque export est inscrit au journal d'activité.
+
+### Ou déposer un magasin existant
+
+**Projets → Gérer la clé → Déposer un autre magasin**, si l'application est déjà
+publiée avec une clé que vous détenez. Le fichier est ouvert par `keytool` avant
+d'être accepté : un mot de passe faux, un alias absent ou un fichier corrompu
+sont signalés au dépôt, pas au bout d'un build de dix minutes.
+
+Pour la générer vous-même en ligne de commande :
+
 ```bash
 keytool -genkeypair -v \
   -keystore mon-app.jks \
@@ -212,17 +249,8 @@ keytool -genkeypair -v \
   -dname "CN=Mon application, O=Mon organisation, L=Abidjan, C=CI"
 ```
 
-- **PKCS12 et non JKS** : JKS est hérité, `keytool` avertit à chaque usage.
-- **PKCS12 ne gère pas deux mots de passe distincts** : le même pour le magasin
-  et pour la clé.
-- **10950 jours ≈ 30 ans** : une clé qui expire condamne l'application à changer
-  d'identité.
-- Le mot de passe se tire au sort : `openssl rand -base64 32`.
-
-Déposez ensuite le fichier dans **Projets → Déposer**. Il est validé par
-`keytool` avant d'être accepté, et son empreinte SHA-256 est relevée. Le mot de
-passe est chiffré en base et jamais réaffiché : on reconnaît sa clé à son
-empreinte.
+Dans tous les cas, le mot de passe est chiffré en base et jamais réaffiché hors
+d'un export authentifié : on reconnaît sa clé à son empreinte.
 
 > ⚠️ **Changer la clé d'une application déjà distribuée** oblige chaque
 > utilisateur à désinstaller puis réinstaller. Android refuse catégoriquement une
