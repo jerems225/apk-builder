@@ -32,6 +32,16 @@ const publicBuild = (b) => ({
   apkSize: b.apkSize,
   appVersion: b.appVersion,
   signedWith: b.signedWith,
+  // Relevés sur l'APK lui-même. applicationId et versionCode sont exposés
+  // parce que ce sont eux, et non le nom du dépôt, qui décident si une
+  // installation aboutit sur un téléphone donné.
+  applicationId: b.applicationId,
+  versionCode: b.versionCode,
+  signatureSchemes: b.signatureSchemes,
+  apkAbis: b.apkAbis,
+  minSdk: b.minSdk,
+  targetSdk: b.targetSdk,
+  identityWarning: b.identityWarning,
   exitCode: b.exitCode,
   error: b.error,
   createdAt: b.createdAt,

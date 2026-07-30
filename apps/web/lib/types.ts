@@ -104,6 +104,15 @@ export interface Build {
   apkSize: number | null;
   appVersion: string | null;
   signedWith: string | null;
+  /** Relevés sur l'APK produit, pas déduits de la fiche du projet. */
+  applicationId: string | null;
+  versionCode: string | null;
+  signatureSchemes: string | null;
+  apkAbis: string | null;
+  minSdk: string | null;
+  targetSdk: string | null;
+  /** Non nul : l'APK est valide mais son installation échouera pour certains. */
+  identityWarning: string | null;
   exitCode: number | null;
   error: string | null;
   createdAt: string;

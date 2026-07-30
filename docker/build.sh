@@ -116,32 +116,35 @@ APK_SRC="$(find app/build/outputs/apk -name '*.apk' -type f | sort | head -1)"
 
 SIGNED_WITH=""
 
+# Résolu hors du bloc de signature : la vérification d'installabilité en a
+# besoin, qu'une clé de release ait été fournie ou non.
+BUILD_TOOLS="$(find "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools" -maxdepth 1 -mindepth 1 -type d | sort -V | tail -1)"
+[ -n "$BUILD_TOOLS" ] || fail "build-tools introuvables dans le SDK Android"
+echo "build-tools : $BUILD_TOOLS"
+
 section "Signature"
 if [ -n "${KEYSTORE_FILE:-}" ]; then
   [ -r "$KEYSTORE_FILE" ]         || fail "magasin de clés illisible : $KEYSTORE_FILE"
   [ -n "${KEYSTORE_ALIAS:-}" ]    || fail "KEYSTORE_ALIAS manquant alors qu'un magasin est fourni"
   [ -n "${KEYSTORE_PASSWORD:-}" ] || fail "KEYSTORE_PASSWORD manquant alors qu'un magasin est fourni"
 
-  BUILD_TOOLS="$(find "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools" -maxdepth 1 -mindepth 1 -type d | sort -V | tail -1)"
-  [ -n "$BUILD_TOOLS" ] || fail "build-tools introuvables dans le SDK Android"
-  echo "build-tools : $BUILD_TOOLS"
-
-  WORK_APK=/workspace/unsigned.apk
-  cp "$APK_SRC" "$WORK_APK"
-
-  # 1. Retirer la signature héritée du gabarit.
-  #    Piège à connaître : le gabarit React Native déclare un signingConfig de
-  #    release qui pointe vers la clé de DEBUG. assembleRelease ne produit donc
-  #    pas un APK non signé, mais un APK signé avec la mauvaise clé. Sans cette
-  #    étape, apksigner échoue ou empile deux signatures v1 incohérentes.
-  zip -d "$WORK_APK" 'META-INF/*.RSA' 'META-INF/*.SF' 'META-INF/*.DSA' >/dev/null 2>&1 || true
-
-  # 2. Aligner AVANT de signer : apksigner préserve l'alignement, l'inverse
+  # 1. Aligner AVANT de signer : apksigner préserve l'alignement, l'inverse
   #    n'est pas vrai. zipalign après signature invaliderait la signature.
-  "$BUILD_TOOLS/zipalign" -p -f 4 "$WORK_APK" /workspace/aligned.apk
+  #
+  #    Et RIEN d'autre entre Gradle et apksigner. Il y avait ici un
+  #    `zip -d META-INF/*.RSA` censé retirer la signature de debug héritée du
+  #    gabarit React Native. Deux raisons de ne pas le remettre : apksigner
+  #    remplace de lui-même les signatures existantes, v1 comme v2/v3, donc
+  #    l'étape était sans objet ; et Info-ZIP ignore l'APK Signing Block que
+  #    Gradle place avant le catalogue central, si bien qu'il réécrivait
+  #    l'archive autour d'un bloc qu'il ne comprenait pas.
+  "$BUILD_TOOLS/zipalign" -p -f 4 "$APK_SRC" /workspace/aligned.apk
 
-  # 3. Signer en v2 + v3. v3 autorise une rotation de clé ultérieure, ce qui
-  #    évite d'enfermer le projet dans la clé d'aujourd'hui.
+  # 2. Signer en v2 + v3. v3 autorise une rotation de clé ultérieure, ce qui
+  #    évite d'enfermer le projet dans la clé d'aujourd'hui. v1 reste laissé au
+  #    choix d'apksigner, qui l'active selon le minSdk lu dans le manifeste :
+  #    le forcer n'apporterait rien au-dessus d'Android 7 et échoue sur les
+  #    archives aux noms d'entrées non-ASCII.
   #    --ks-pass env: lit la variable au lieu de prendre le mot de passe en
   #    argument : invisible dans la table des processus du conteneur.
   "$BUILD_TOOLS/apksigner" sign \
@@ -154,19 +157,89 @@ if [ -n "${KEYSTORE_FILE:-}" ]; then
     --out /workspace/signed.apk \
     /workspace/aligned.apk
 
-  # 4. Relever l'empreinte réellement apposée. C'est le contrôle qui vaut :
-  #    si elle diffère de celle enregistrée dans l'interface, la signature
-  #    héritée n'a pas été retirée correctement.
-  CERTS="$("$BUILD_TOOLS/apksigner" verify --print-certs /workspace/signed.apk)"
-  echo "$CERTS"
-  SIGNED_WITH="$(echo "$CERTS" | grep -i -m1 'SHA-256 digest' | sed -E 's/.*:\s*//' | tr -d ' ' || true)"
-
   APK_SRC=/workspace/signed.apk
   echo "signé avec l'alias $KEYSTORE_ALIAS"
 else
-  echo "aucune clé de release fournie — l'APK conserve la signature de debug."
+  echo "aucune clé de release fournie — l'APK conserve la signature produite"
+  echo "par Gradle, celle de debug pour les tâches et gabarits usuels."
   echo "Rappel : cette clé est publique et partagée, et un vidage du cache la"
   echo "régénère, ce qui casserait les mises à jour par-dessus l'existant."
+  echo "Ce que Gradle a réellement apposé est constaté plus bas, pas supposé."
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Porte d'installabilité. Rien ne sort d'ici sans être passé par là.
+#
+# Raison d'être : jusqu'au 30 juillet 2026, un APK était déposé dans
+# /artifacts dès que Gradle rendait la main. On apprenait qu'il ne s'installait
+# pas par l'utilisateur final, jamais par le build. Les contrôles ci-dessous
+# sont ceux qu'un téléphone applique, exécutés ici pendant qu'il est encore
+# temps.
+# ─────────────────────────────────────────────────────────────────────────────
+section "Vérification d'installabilité"
+
+# 1. La signature doit passer la vérification COMPLÈTE, pas seulement livrer
+#    une empreinte. `verify --print-certs` seul réussissait sur un paquet
+#    qu'Android aurait refusé : c'est --verbose qui dit quels schémas sont là.
+VERIFY_OUT="$("$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK_SRC" 2>&1)" || {
+  echo "$VERIFY_OUT" >&2
+  fail "l'APK ne passe pas la vérification de signature — il serait refusé à l'installation"
+}
+echo "$VERIFY_OUT"
+
+SIGNED_WITH="$(echo "$VERIFY_OUT" | grep -i -m1 'certificate SHA-256 digest' | sed -E 's/.*:[[:space:]]*//' | tr -d ' ' || true)"
+[ -n "$SIGNED_WITH" ] || fail "aucun certificat relevé sur l'APK : paquet non signé"
+
+# 2. Au moins un schéma de signature doit être actif. Un APK sans aucun schéma
+#    est systématiquement rejeté, sur tous les appareils.
+SIG_SCHEMES=""
+for s in v1:1 v2:2 v3:3 v4:4; do
+  label="${s%%:*}"; num="${s##*:}"
+  if echo "$VERIFY_OUT" | grep -qiE "Verified using v${num} scheme.*true"; then
+    SIG_SCHEMES="${SIG_SCHEMES}${SIG_SCHEMES:+,}${label}"
+  fi
+done
+[ -n "$SIG_SCHEMES" ] || fail "aucun schéma de signature actif (ni v1, ni v2, ni v3)"
+echo "schémas de signature : $SIG_SCHEMES"
+
+# 3. Identité du paquet. Consignée systématiquement : c'est l'applicationId, et
+#    non le nom du dépôt, qui décide si une installation écrase une application
+#    existante ou se heurte à elle. Deux projets qui partagent un applicationId
+#    ne peuvent pas cohabiter sur un même téléphone.
+BADGING="$("$BUILD_TOOLS/aapt2" dump badging "$APK_SRC" 2>/dev/null)" || BADGING=""
+APP_ID=""; VERSION_CODE=""; MIN_SDK=""; TARGET_SDK=""; APK_ABIS=""
+if [ -n "$BADGING" ]; then
+  APP_ID="$(echo "$BADGING"       | sed -nE "s/^package: name='([^']+)'.*/\1/p"           | head -1)"
+  VERSION_CODE="$(echo "$BADGING" | sed -nE "s/^package:.*versionCode='([^']*)'.*/\1/p"   | head -1)"
+  MIN_SDK="$(echo "$BADGING"      | sed -nE "s/^sdkVersion:'([^']*)'.*/\1/p"              | head -1)"
+  TARGET_SDK="$(echo "$BADGING"   | sed -nE "s/^targetSdkVersion:'([^']*)'.*/\1/p"        | head -1)"
+  APK_ABIS="$(echo "$BADGING"     | sed -nE "s/^native-code: (.*)/\1/p" | tr -d "'" | tr ' ' ',' | head -1)"
+  echo "applicationId : ${APP_ID:-inconnu}   versionCode : ${VERSION_CODE:-inconnu}"
+  echo "minSdk : ${MIN_SDK:-?}   targetSdk : ${TARGET_SDK:-?}"
+  echo "architectures réellement embarquées : ${APK_ABIS:-aucune}"
+  [ -n "$APP_ID" ] || fail "applicationId illisible : le manifeste est inexploitable"
+else
+  echo "aapt2 n'a pas pu lire le paquet — contrôle d'identité impossible" >&2
+  fail "le manifeste de l'APK est illisible : Android afficherait « problème d'analyse du package »"
+fi
+
+# 4. Les architectures demandées doivent être servies. Un APK dépourvu de
+#    l'architecture du téléphone échoue à l'installation avec le message
+#    générique « L'application n'a pas été installée », sans autre indice.
+if [ -n "$APK_ABIS" ]; then
+  MATCH=0
+  for want in ${ABIS//,/ }; do
+    case ",$APK_ABIS," in *",$want,"*) MATCH=1 ;; esac
+  done
+  [ "$MATCH" = "1" ] || fail "aucune des architectures demandées ($ABIS) n'est présente dans l'APK ($APK_ABIS)"
+fi
+
+# 5. Un APK debug s'installe mais réclame Metro au lancement. Ce n'est pas un
+#    échec de build, mais l'utilisateur qui le reçoit croit à une application
+#    cassée : on le dit ici, pas après coup.
+if ! unzip -l "$APK_SRC" | grep -q 'assets/index.android.bundle'; then
+  echo "AVERTISSEMENT : aucun bundle JS embarqué. Cet APK a besoin d'un serveur"
+  echo "Metro joignable pour démarrer — ne le distribuez pas à un utilisateur final."
 fi
 
 section "Dépôt de l'artefact"
@@ -181,6 +254,10 @@ unzip -l "/artifacts/${APK_OUT}" | sort -k1 -n -r | head -20 || true
 echo "— bibliothèques natives par architecture —"
 unzip -l "/artifacts/${APK_OUT}" | grep '/lib/' | awk '{s[$4]+=$1} END {for (a in s) print s[a], a}' | sort -rn || true
 
+# application_id et version_code sont consignés pour être comparés d'un build
+# au suivant : c'est le seul moyen de repérer un applicationId réutilisé entre
+# deux projets, ou une clé qui change sous une identité inchangée — les deux
+# cas où l'installation échoue chez l'utilisateur alors que l'APK est sain.
 cat > /artifacts/meta.json <<JSON
 {
   "apk_name": "${APK_OUT}",
@@ -190,7 +267,13 @@ cat > /artifacts/meta.json <<JSON
   "commit": "${COMMIT}",
   "gradle_task": "${GRADLE_TASK}",
   "abis": "${ABIS}",
-  "signed_with": "${SIGNED_WITH}"
+  "signed_with": "${SIGNED_WITH}",
+  "signature_schemes": "${SIG_SCHEMES}",
+  "application_id": "${APP_ID}",
+  "version_code": "${VERSION_CODE}",
+  "min_sdk": "${MIN_SDK}",
+  "target_sdk": "${TARGET_SDK}",
+  "apk_abis": "${APK_ABIS}"
 }
 JSON
 

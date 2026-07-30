@@ -262,6 +262,25 @@ model Build {
   // exact et une régression de signature se voit immédiatement.
   signedWith String?
 
+  // ── Identité du paquet, relevée sur l'APK produit ──────────────────────────
+  // Ce n'est pas le nom du dépôt qui décide si une installation aboutit, c'est
+  // l'applicationId. Deux projets qui le partagent ne peuvent pas cohabiter sur
+  // un même téléphone, et une clé qui change sous un applicationId déjà
+  // distribué rend toute mise à jour impossible. Relevés build par build parce
+  // que ces situations ne se voient que dans l'historique — un contrôle à
+  // l'intérieur du conteneur ne peut pas les connaître.
+  applicationId    String?
+  versionCode      String?
+  signatureSchemes String? // ex: v1,v2,v3 — aucun schéma = APK rejeté partout
+  apkAbis          String? // architectures réellement embarquées, pas demandées
+  minSdk           String?
+  targetSdk        String?
+
+  // Constat posé à la fin du build. Non nul = l'APK est valide mais son
+  // installation échouera chez une partie des utilisateurs. Texte lisible,
+  // une ligne par constat : c'est destiné à être lu, pas interprété.
+  identityWarning String?
+
   createdAt  DateTime  @default(now())
   startedAt  DateTime?
   finishedAt DateTime?
@@ -270,6 +289,9 @@ model Build {
   @@index([workspaceId, createdAt])
   @@index([repoName, status])
   @@index([projectId])
+  // Sert le contrôle d'identité, qui interroge l'historique par applicationId
+  // à la fin de chaque build.
+  @@index([applicationId, status])
 }
 
 // ───────────────────────── Jetons machine (CI) ───────────────────────────────

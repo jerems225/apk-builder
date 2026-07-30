@@ -90,8 +90,24 @@ export default function BuildDetailPage() {
         <div className="mb-4">
           <Alert tone="danger" title="L’empreinte apposée diffère de celle du projet">
             L’APK a été signé avec <code>{fingerprint(build.signedWith)}</code>, alors que le projet
-            déclare une autre clé. Vérifiez que la signature héritée du gabarit React Native a bien
-            été retirée avant l’apposition — c’est la cause la plus fréquente.
+            déclare une autre clé. Vérifiez quelle clé est enregistrée sur le projet et si elle a
+            été remplacée depuis ce build — l’historique des builds date le changement.
+          </Alert>
+        </div>
+      )}
+
+      {/* Ce build a réussi et l'APK est valide, mais il se heurtera à ce qui est
+          déjà installé sur les téléphones. Placé ici, en haut et en rouge, parce
+          que c'est un piège qui ne se voit sur aucun appareil neuf : il ne se
+          manifeste que chez les utilisateurs qui avaient la version précédente. */}
+      {build.identityWarning && (
+        <div className="mb-4">
+          <Alert tone="danger" title="Cet APK est valide mais ne s’installera pas partout">
+            <ul className="space-y-2">
+              {build.identityWarning.split('\n').map((ligne, i) => (
+                <li key={i}>{ligne}</li>
+              ))}
+            </ul>
           </Alert>
         </div>
       )}
@@ -136,9 +152,38 @@ export default function BuildDetailPage() {
               <Row label="Fichier">{build.apkName || '—'}</Row>
               <Row label="Taille">{bytes(build.apkSize)}</Row>
               <Row label="Version">{build.appVersion ? `v${build.appVersion}` : '—'}</Row>
-              <Row label="Architectures">{build.abis}</Row>
+              <Row label="Architectures demandées">{build.abis}</Row>
+              {/* Demandées et embarquées diffèrent dès que React Native ignore
+                  -PreactNativeArchitectures : l'APK reste universel et pèse le
+                  double. Sans les deux lignes côte à côte, cela ne se voit pas. */}
+              <Row label="Réellement embarquées">
+                {build.apkAbis
+                  ? <span className={build.apkAbis !== build.abis ? 'font-medium' : undefined}
+                      style={build.apkAbis !== build.abis ? { color: 'var(--warn-ink)' } : undefined}>
+                      {build.apkAbis}
+                    </span>
+                  : '—'}
+              </Row>
               <Row label="Tâche Gradle"><code>{build.gradleTask}</code></Row>
               <Row label="Sous-dossier"><code>{build.appSubdir}</code></Row>
+            </dl>
+          </Card>
+
+          {/* L'identité du paquet, et non le nom du dépôt, décide si une
+              installation aboutit. La montrer est le seul moyen de repérer un
+              applicationId hérité d'un autre projet par recopie. */}
+          <Card>
+            <CardHeader title="Identité du paquet"
+              subtitle="Lue dans l’APK produit par aapt2. C’est elle qu’Android compare à ce qui est déjà installé." />
+            <dl className="space-y-0 border-t" style={{ borderColor: 'var(--line)' }}>
+              <Row label="applicationId">
+                {build.applicationId ? <code>{build.applicationId}</code> : '—'}
+              </Row>
+              <Row label="versionCode">{build.versionCode || '—'}</Row>
+              <Row label="minSdk / targetSdk">
+                {build.minSdk || '?'} / {build.targetSdk || '?'}
+              </Row>
+              <Row label="Schémas de signature">{build.signatureSchemes || '—'}</Row>
             </dl>
           </Card>
 

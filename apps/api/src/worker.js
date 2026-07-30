@@ -6,6 +6,7 @@ const config = require('./config');
 const prisma = require('./lib/prisma');
 const secrets = require('./lib/crypto');
 const keystore = require('./lib/keystore');
+const identity = require('./services/identity');
 const { purgeExpiredSessions } = require('./lib/auth');
 
 const active = new Map(); // buildId -> { child, containerName, workspaceId, cancelled }
@@ -128,6 +129,31 @@ async function runBuild(build) {
     const ok = code === 0 && meta.apk_name;
     const cancelled = entry && entry.cancelled;
 
+    // Le contrôle d'identité interroge l'historique des builds : il ne peut donc
+    // pas vivre dans le conteneur, qui n'a que l'APK sous les yeux. C'est lui
+    // qui repère un applicationId partagé par deux projets, une clé qui change
+    // sous une identité déjà distribuée, ou un versionCode qui recule — trois
+    // cas où l'APK est valide mais refusé par les téléphones.
+    let identityWarning = null;
+    if (ok) {
+      try {
+        identityWarning = await identity.inspect({
+          buildId: build.id,
+          projectId: build.projectId || null,
+          repoName: build.repoName,
+          applicationId: meta.application_id || null,
+          versionCode: meta.version_code || null,
+          signedWith: meta.signed_with || null,
+        });
+      } catch (e) {
+        log(`contrôle d'identité impossible sur ${build.id} : ${e.message}`);
+      }
+      if (identityWarning) {
+        logStream.write(`\n!! Installabilité — à lire avant de distribuer cet APK :\n`);
+        for (const line of identityWarning.split('\n')) logStream.write(`   ${line}\n`);
+      }
+    }
+
     await prisma.build.update({
       where: { id: build.id },
       data: {
@@ -140,6 +166,15 @@ async function runBuild(build) {
         // La consigner ici plutôt que de recopier celle du projet permet de
         // détecter une régression de signature au lieu de la masquer.
         signedWith: meta.signed_with || null,
+        // Relevés sur l'APK par apksigner et aapt2, jamais déduits de la fiche
+        // du projet : c'est ce qui est réellement dans le fichier qui compte.
+        applicationId: meta.application_id || null,
+        versionCode: meta.version_code || null,
+        signatureSchemes: meta.signature_schemes || null,
+        apkAbis: meta.apk_abis || null,
+        minSdk: meta.min_sdk || null,
+        targetSdk: meta.target_sdk || null,
+        identityWarning,
         exitCode: code,
         error: ok ? null
           : cancelled ? 'Build interrompu depuis l’interface'
